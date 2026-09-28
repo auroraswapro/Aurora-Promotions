@@ -1,0 +1,16 @@
+{
+  "name": "aurora-promotions-tracker",
+  "version": "1.0.0",
+  "description": "Aurora Promotions project management & team progress tracker",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "demo": "node scripts/seed-demo.js && node server.js",
+    "seed:demo": "node scripts/seed-demo.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED"
+}
