@@ -25,7 +25,26 @@ one tap.
   <img src="docs/screenshots/my-tasks-dark.png" width="49%" alt="My tasks, dark mode">
 </p>
 
-## Getting started
+## Online version (recommended)
+
+The `web/` folder is the online edition: a website on **GitHub Pages** that uses **Supabase**
+for the database and for **email sign-in codes** (no passwords).
+
+- **Website:** https://auroraswapro.github.io/Aurora-Promotions/
+- **Setup (about 20 min, free):** see [SETUP.md](SETUP.md)
+- **Database script:** [supabase/setup.sql](supabase/setup.sql)
+
+Until Supabase is connected in `web/config.js`, the site runs in **demo mode** with sample data.
+
+How access works:
+- The first person to sign in becomes the **manager**.
+- Managers add team members by email on the **Team** page. Only those emails can see anything.
+- The database enforces the rules: members update only their own tasks, and only managers
+  create projects, assign work and manage the team.
+
+## Running it on your own server (alternative)
+
+### Getting started
 
 Requires **Node.js 18+**. There are no packages to install.
 
