@@ -1,0 +1,1885 @@
+From f868a285d198ad318eabdd58b2924c68444a6585 Mon Sep 17 00:00:00 2001
+From: auroraswapro <auroraswapro@users.noreply.github.com>
+Date: Mon, 5 Oct 2026 15:46:03 +0000
+Subject: [PATCH] Projects: Aurora team tracker features and Aurora Promotions
+ branding
+
+Projects page (same Firestore data and security rules as before):
+- Overview tab: headline numbers, team progress per person, deadlines,
+  project progress, tasks by status, latest updates, star of the week
+- My tasks: cards with an autosaving progress slider, status menu,
+  one-tap Done (with confetti) and Add note
+- Board with five columns (new Blocked status), project cards,
+  Team tab with workload and a per-person drawer
+- Quick 0/25/50/75/100% progress buttons in the task drawer
+
+Branding: AP logo in the top bar, sign-in card and browser tab; white
+background with the logo's lavender as the accent colour.
+Handbook and CLAUDE.md updated to match.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01UEeLhMhc335hBJsbEcoA9r
+---
+ CLAUDE.md                        |   5 +-
+ docs/assets/apple-touch-icon.png | Bin 0 -> 17843 bytes
+ docs/assets/core.css             |  11 +-
+ docs/assets/core.js              |   9 +-
+ docs/assets/favicon.png          | Bin 0 -> 4056 bytes
+ docs/assets/logo.png             | Bin 0 -> 31294 bytes
+ docs/handbook/index.html         |   6 +-
+ docs/projects/index.html         | 444 +++++++++++++++++++++++++------
+ 8 files changed, 388 insertions(+), 87 deletions(-)
+ create mode 100644 docs/assets/apple-touch-icon.png
+ create mode 100644 docs/assets/favicon.png
+ create mode 100644 docs/assets/logo.png
+
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 765c2b0..e778e5b 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -36,9 +36,10 @@ People are `members/{lowercase email}`: `{name, email, role: "admin"|"member", a
+ |---|---|
+ | `docs/index.html` | Home: tool tiles for what the viewer can use; Team tile for admins. |
+ | `docs/assets/core.js` | Shared by every page: Firebase init, sign-in screen (Google + email/password + reset), member lookup, access levels (`APP.level(tool)`), top bar, `window.claude` adapter. Tool list `TOOLS` lives here (set `ready:true` when a tool ships). Demo mode on localhost. |
+-| `docs/assets/core.css` | Shared tokens (light/dark), top bar, sign-in card, tiles, buttons. |
++| `docs/assets/core.css` | Shared tokens (light/dark), top bar, sign-in card, tiles, buttons. Brand: white background, accent = the AP logo's lavender (`#8482a7`, deepened to `#625f8f` for buttons). |
++| `docs/assets/logo.png`, `favicon.png`, `apple-touch-icon.png` | Aurora Promotions AP logo (top bar, sign-in card, browser tab and phone icon; core.js adds the icon links to every page). |
+ | `docs/team/index.html` | Team & Access (admins only): add/edit people, login type, role, per-tool access, on/off, send password email. |
+-| `docs/projects/index.html` | **Projects** (tool key `projects`): **internal team work only, no client or invoice links** (user, 2026-10-02). `projects/{id}`: name, status (list in `settings/projects.statuses`; "done"/"cancel" in the name = finished), priority, startDate, dueDate, lead, team[emails], description. `tasks/{id}`: projectId, title, assignee (email), dueDate, priority, status todo/doing/review/done, progress 0–100, order, team[] (copied from the project, kept in sync; rules use it), comments[{by,name,at,text}], assignedAt/By, doneAt. Optional standard tasks (`settings/projects.steps`, default empty). Full = everything; limited = projects/tasks whose team includes them, add tasks for themselves, edit own tasks (no reassign), comment (only `comments`+`updatedAt` change), no delete. Views: My tasks, Board (drag & drop), Projects, Settings (full). `?project=<id>` opens one. |
++| `docs/projects/index.html` | **Projects** (tool key `projects`): **internal team work only, no client or invoice links** (user, 2026-10-02). `projects/{id}`: name, status (list in `settings/projects.statuses`; "done"/"cancel" in the name = finished), priority, startDate, dueDate, lead, team[emails], description. `tasks/{id}`: projectId, title, assignee (email), dueDate, priority, status todo/doing/review/blocked/done, progress 0–100, order, team[] (copied from the project, kept in sync; rules use it), comments[{by,name,at,text}], assignedAt/By, doneAt. Optional standard tasks (`settings/projects.steps`, default empty). Full = everything; limited = projects/tasks whose team includes them, add tasks for themselves, edit own tasks (no reassign), comment (only `comments`+`updatedAt` change), no delete. Views: Overview (team dashboard: KPIs, team progress per person, deadlines, project progress, tasks by status, latest updates derived from tasks/comments, star of the week), My tasks (cards with autosaving progress slider, status, ✓ Done, Add note), Board (5 columns, drag & drop), Projects (cards; progress = average task progress), Team (people, workload, person drawer), Settings (full). Moving progress above 0 on a To do task sets In progress; Done sets 100% and shows confetti. `?project=<id>` opens one. |
+ | `docs/clients/index.html` | **Clients & Seasons** (tool key `clients`). `clients/{key}` = a contact person (key = lowercase email, else `nc--<name>--<company>` slug): name, company, email, phone, title, owner (rep **name**, = salesRep on their first order; full users can reassign), ownerSource, tags[], notes, dnc. Full users auto-create missing client docs from orders on page load; limited users see "virtual" clients from their own orders until they act on one. Stats (invoices, sales before tax excl. quote/cancelled statuses, first/last order, months) are computed live from visible orders. `seasons/{id}`: type (from `settings/clients.types`), year, name, outreachStart/End, catalogUrl, products, subject, body (fill-ins {first_name} {name} {company} {season} {catalog_link} {products} {rep_name}), target {mode: all/buyers/lastyear/tags/manual, tags[]}. `outreach/{seasonId__clientId}`: owner, status todo/sent/replied/quote/ordered/not_interested/no_reply/stopped/skipped, sentAt, followups, nextFollowUp (= today + `followupDays`, default 4; after `maxFollowups`, default 2, → no_reply), history[]. "Due" = sent and nextFollowUp ≤ today. Emails open as Gmail (`authuser`=member email) / Outlook web / mailto compose links; choice kept in localStorage `cs-send`. Rules: limited = owner == their name, no delete; seasons and settings full only. |
+ | `docs/assets/gmail.js` | Gmail sending for Clients & Seasons, entirely in the browser: Google Identity Services token client (scopes `gmail.send` + `gmail.metadata`, `login_hint` = member email) and Gmail REST (`messages.send` with threadId/In-Reply-To for follow-ups; `threads.get` metadata to detect replies = any message without the SENT label). Token kept in sessionStorage (~1 h). Available only for `@aurorapromotions.ca` members and when `GOOGLE_OAUTH_CLIENT_ID` is set in `docs/firebase-config.js` (OAuth consent screen must be **Internal**; authorized JS origins = the dashboard address + `http://localhost:8093`). Simulated in demo mode. **Hard rule from the user (2026-10-02): no email may reach a client without the approval of that client's own sales rep.** So: only the owner rep sees send controls (two-click Approve & send, second click shows the recipient); full users can only save `outreach.draft` for the rep; nothing is ever sent automatically (follow-ups too need approval). Never add auto-send, scheduled send or send-on-behalf. |
+ | `docs/acceptance/` | **Order Acceptance** (tool key `acceptance`). `index.html`: Terms & Conditions viewer (print/PDF), editor (full only) and version history. `terms/v{n}` = {version, effectiveDate, company{name,address,email,phone,website,province}, sections[{title,body}], note, createdAt/By/ByName}; rules: read with any acceptance access, create by full, **never update/delete** (immutable so acceptances can cite a version). `terms-default.js` = starting draft (Ontario; shipping, damage claims, force majeure incl. carrier/port/border strikes, customs, tariffs, supplier shutdowns; cancellations: full refund only before production; 2%/month = 26.82%/yr; not legal advice). `{company}`/`{province}` placeholders. Client acceptance: `acceptances/{28-char random token}` = snapshot {invoiceNumber, salesRep, client*, deliveryAddress, inHandsDate, orderDate, lines[{product,details,qty,unitPrice,amount}], subtotal, tax (line customerTaxPct or settings default), total, terms{version,effectiveDate,company,sections}, payment{provider stripe/square, url}, message, status draft→sent→accepted→paid / cancelled, history[], acceptedName/acceptedAt(server time)/acceptedUserAgent, paidAt}. Public page `docs/accept/index.html` (no core.js, no sign-in) reads it with `get` and the client may only flip sent→accepted with name + `request.time`. Staff cannot set "accepted" or touch accepted* fields; after acceptance only status/payment/paid/history change; accepted ones can never be deleted. Only the invoice's rep sends (Gmail two-click). Mark as paid also sets orders.invoicePaidDate. Sales By-order "Acceptance" column links here (`acceptance/?invoice=` / `?id=`). Stripe/Square are payment links pasted by the rep; automatic paid status would need a server with their secret keys. |
+diff --git a/docs/assets/apple-touch-icon.png b/docs/assets/apple-touch-icon.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..0bba927b63733b5dc9e02540190ddb715eb61398
+GIT binary patch
+literal 17843
+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
+W>aj_JFDS480000<MNUMnLSTYA!>V5Z
+
+literal 0
+HcmV?d00001
+
+diff --git a/docs/assets/core.css b/docs/assets/core.css
+index c70741f..c38f770 100644
+--- a/docs/assets/core.css
++++ b/docs/assets/core.css
+@@ -1,7 +1,8 @@
+ /* Aurora Promotions Dashboard: shared look for every page (top bar, sign-in, home, team). Tool pages add their own styles. */
+ :root{
+-  --bg:#f3f4f2; --surface:#fcfcfb; --surface-2:#eef0ed; --ink:#14171a; --ink-2:#4f555b; --muted:#80868c;
+-  --line:#e0e2dd; --line-strong:#c6c9c2; --accent:#155e63; --accent-ink:#ffffff; --accent-soft:#dcecec;
++  /* Aurora Promotions brand: white with the lavender of the AP logo (#8482a7, deepened for readable buttons) */
++  --bg:#ffffff; --surface:#ffffff; --surface-2:#f3f3f7; --ink:#1d1c2e; --ink-2:#4e4d63; --muted:#7f7e94;
++  --line:#e6e6ee; --line-strong:#cfcfdc; --accent:#625f8f; --accent-ink:#ffffff; --accent-soft:#efeef6; --logo:#8482a7;
+   --good-ink:#006300; --good-soft:#e3f3e3; --warn:#b57a00; --warn-soft:#fbf0d6; --crit:#d03b3b; --crit-soft:#fae3e3; --info-ink:#1c5cab; --info-soft:#e2ecf8;
+   --f-display:"Bricolage Grotesque","Figtree",system-ui,sans-serif;
+   --f-body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+@@ -9,7 +10,7 @@
+ }
+ @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+   --bg:#0f1112; --surface:#1a1c1d; --surface-2:#232628; --ink:#f4f5f3; --ink-2:#c3c6c2; --muted:#8d928f;
+-  --line:#2c2f30; --line-strong:#3d4143; --accent:#4fb3b3; --accent-ink:#0b1414; --accent-soft:#17312f;
++  --line:#2c2f30; --line-strong:#3d4143; --accent:#aeacd2; --accent-ink:#17162a; --accent-soft:#29283d;
+   --good-ink:#3ec43e; --good-soft:#15291a; --warn:#fab219; --warn-soft:#2f2612; --crit:#e66767; --crit-soft:#331b1b; --info-ink:#86b6ef; --info-soft:#15243a;
+   color-scheme:dark;
+ }}
+@@ -22,7 +23,8 @@ button,input,select,textarea{font:inherit;color:inherit}
+ /* top bar */
+ .ap-bar{background:var(--surface);border-bottom:1px solid var(--line)}
+ .ap-bar-in{max-width:1280px;margin:0 auto;padding:8px 20px;display:flex;align-items:center;gap:6px 18px;flex-wrap:wrap}
+-.ap-brand{font-family:var(--f-display);font-weight:700;font-size:16px;color:var(--ink);text-decoration:none;white-space:nowrap}
++.ap-brand{font-family:var(--f-display);font-weight:700;font-size:16px;color:var(--ink);text-decoration:none;white-space:nowrap;display:inline-flex;align-items:center;gap:9px}
++.ap-brand img{width:32px;height:32px;border-radius:50%;flex:none}
+ .ap-brand span{color:var(--accent)}
+ .ap-nav{display:flex;gap:2px;flex-wrap:wrap;margin-right:auto}
+ .ap-nav a{color:var(--ink-2);text-decoration:none;font-weight:600;padding:5px 10px;border-radius:7px}
+@@ -53,6 +55,7 @@ button,input,select,textarea{font:inherit;color:inherit}
+ .ap-gate{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;background:var(--bg);overflow:auto}
+ .ap-card{max-width:380px;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:24px}
+ .ap-card h1{font-family:var(--f-display);font-size:22px;margin:0 0 4px;line-height:1.2}
++.ap-logo{display:block;width:72px;height:72px;border-radius:50%;margin:0 0 14px}
+ .ap-card h1 span{color:var(--accent)}
+ .ap-card form{display:flex;flex-direction:column;gap:10px;margin-top:4px}
+ .ap-card label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;color:var(--ink-2)}
+diff --git a/docs/assets/core.js b/docs/assets/core.js
+index 93a2c28..83e6999 100644
+--- a/docs/assets/core.js
++++ b/docs/assets/core.js
+@@ -16,6 +16,11 @@ const TOOLS=[
+ const LEVELS={none:"No access",limited:"Limited",full:"Full"};
+ const LEVEL_HELP={limited:"Own records only · can add and edit, not delete",full:"Everything in this tool, including delete and settings"};
+ const PAGE=Object.assign({tool:"home",base:""},window.PAGE||{});
++// brand icon for the browser tab and phone home screen, added here so every page gets it
++[["icon","favicon.png"],["apple-touch-icon","apple-touch-icon.png"]].forEach(([rel,f])=>{
++  if(document.querySelector(`link[rel="${rel}"]`))return;
++  const l=document.createElement("link");l.rel=rel;l.href=PAGE.base+"assets/"+f;document.head.appendChild(l);
++});
+ const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+ 
+ const isLocal=/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+@@ -36,7 +41,7 @@ window.APP=APP;
+ function gate(inner){
+   let el=document.getElementById("ap-gate");
+   if(!el){el=document.createElement("div");el.id="ap-gate";el.className="ap-gate";(document.body||document.documentElement).appendChild(el)}
+-  el.innerHTML=`<div class="ap-card"><h1>Aurora Promotions <span>Dashboard</span></h1>${inner}</div>`;
++  el.innerHTML=`<div class="ap-card"><img class="ap-logo" src="${PAGE.base}assets/logo.png" alt="Aurora Promotions logo"><h1>Aurora Promotions <span>Dashboard</span></h1>${inner}</div>`;
+   return el;
+ }
+ const hideGate=()=>{const el=document.getElementById("ap-gate");if(el)el.remove()};
+@@ -88,7 +93,7 @@ function renderBar(){
+   if(APP.isAdmin)links.push(["team","Team & Access","team/"]);
+   const m=APP.member;
+   const b=document.createElement("header");b.className="ap-bar";
+-  b.innerHTML=`<div class="ap-bar-in"><a class="ap-brand" href="${PAGE.base||"./"}">Aurora Promotions <span>Dashboard</span></a>
++  b.innerHTML=`<div class="ap-bar-in"><a class="ap-brand" href="${PAGE.base||"./"}"><img src="${PAGE.base}assets/logo.png" alt="">Aurora Promotions <span>Dashboard</span></a>
+     <nav class="ap-nav" aria-label="Tools">${links.map(([k,l,h])=>`<a href="${PAGE.base}${h}"${PAGE.tool===k?' aria-current="page"':""}>${esc(l)}</a>`).join("")}</nav>
+     <div class="ap-user">${APP.demo?'<span class="ap-demo">Demo</span>':""}<span><b>${esc(m.name||m.email)}</b> · ${APP.roleLabel(m)}</span><button class="ap-btn ap-small" id="ap-out">Sign out</button></div></div>`;
+   document.body.prepend(b);
+diff --git a/docs/assets/favicon.png b/docs/assets/favicon.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..e7c4dfd2844cc6821e1dcc1f2fcff402c9bca86a
+GIT binary patch
+literal 4056
+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
+KMNUMnLSTY>>$&p)
+
+literal 0
+HcmV?d00001
+
+diff --git a/docs/assets/logo.png b/docs/assets/logo.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..f0995125215635cdc9fa600b40602584270350f1
+GIT binary patch
+literal 31294
+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
+
+literal 0
+HcmV?d00001
+
+diff --git a/docs/handbook/index.html b/docs/handbook/index.html
+index 633f8c1..689ca8a 100644
+--- a/docs/handbook/index.html
++++ b/docs/handbook/index.html
+@@ -158,8 +158,9 @@ Net profit       = Gross profit − Rep commission ($) − Platform fee − Cust
+ <ul>
+   <li><b>Project:</b> name, status (editable list in Projects → Settings; a status containing "Done" or "Cancel" counts as finished), priority, start and due dates, a <b>project lead</b>, the <b>team</b>, and notes.</li>
+   <li><b>Standard tasks</b> (optional): a list in Projects → Settings that can be added to a new project in one click, assigned to the lead.</li>
+-  <li><b>Task:</b> title, assigned person, due date, priority, status (<i>To do → In progress → Review → Done</i>), progress %, details and comments. Marking a task Done sets progress to 100%. A task is <b>late</b> when its due date has passed and it isn't done.</li>
+-  <li><b>Views:</b> <i>My tasks</i> (your tasks grouped into Late / This week / Later / No date, with a "New" mark on tasks assigned since your last visit), <i>Board</i> (drag cards between status columns), <i>Projects</i> (progress bar = done tasks ÷ all tasks).</li>
++  <li><b>Task:</b> title, assigned person, due date, priority, status (<i>To do → In progress → Review → Done</i>, or <i>Blocked</i> when someone is stuck), progress %, details and comments. Marking a task Done sets progress to 100% (with a small confetti celebration); moving a To do task's progress above 0% moves it to In progress. A task is <b>late</b> when its due date has passed and it isn't done.</li>
++  <li><b>Views:</b> <i>Overview</i> (team dashboard: open / in progress / late / done this week, team progress per person, deadlines for the next 7 days, project progress, tasks by status, latest updates and a "star of the week" = most tasks finished in 7 days), <i>My tasks</i> (your tasks grouped into Needs attention (late or blocked) / In progress / To do / In review / Done, each with a progress slider that saves by itself, a status menu, a <b>✓ Done</b> button and <b>Add note</b>; a "New" mark on tasks assigned since your last visit), <i>Board</i> (drag cards between the five status columns), <i>Projects</i> (cards; progress = average progress of the project's tasks), <i>Team</i> (each person's open tasks, average progress, late tasks and workload: Available / Light / Balanced / Heavy; click a person for their tasks and updates).</li>
++  <li><b>Latest updates</b> are worked out from the tasks themselves (created, assigned, finished, comments); nothing extra is stored.</li>
+ </ul>
+ <table><thead><tr><th>Access</th><th>In Projects they can…</th></tr></thead><tbody>
+ <tr><td><b>Full</b> (admins, team leads)</td><td>See every project; create, edit and delete projects and tasks; assign anyone (assigning someone outside the team adds them to it); change Projects settings.</td></tr>
+@@ -326,6 +327,7 @@ Net profit       = Gross profit − Rep commission ($) − Platform fee − Cust
+   <li><b>2 Oct 2026:</b> Tools connected (home Today cards, invoice ↔ project ↔ client links, season sales). Order Acceptance started with versioned Terms &amp; Conditions including shipping and force majeure.</li>
+   <li><b>2 Oct 2026:</b> Client acceptance: private accept page with order summary + terms, Stripe or Square payment links, rep-approved sending, Mark as paid.</li>
+   <li><b>2 Oct 2026:</b> Projects changed to internal team work only (no client or invoice links), as requested.</li>
++  <li><b>5 Oct 2026:</b> Projects upgraded with the Aurora team tracker features: Overview dashboard, My tasks with progress sliders and a Done button, Blocked status, Team view with workload, project cards. Same data and security rules as before. Aurora Promotions branding: AP logo in the top bar, sign-in and browser tab; white background with the logo's lavender as the accent colour.</li>
+ </ul>
+ </article>
+ </div>
+diff --git a/docs/projects/index.html b/docs/projects/index.html
+index 019ac0c..1d4f67f 100644
+--- a/docs/projects/index.html
++++ b/docs/projects/index.html
+@@ -11,19 +11,26 @@
+ <script>window.PAGE={tool:"projects",base:"../"}</script>
+ <script src="../assets/core.js"></script>
+ <style>
+-/* Layout: title row, view tabs + filters, then one of: My tasks (grouped list), Board (4 status columns), Projects (list), Settings. Details open in a slide-over. */
+-:root{--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--s7:#4a3aa7;--s8:#e34948}
+-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300;--s7:#9085e9;--s8:#e66767}}
++/* Layout: title row, view tabs + filters, then one of: Overview (team dashboard), My tasks (cards with progress sliders),
++   Board (5 status columns), Projects (cards), Team (people and workload), Settings. Details open in a slide-over. */
++:root{--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--s7:#4a3aa7;--s8:#e34948;
++  --st-todo:#8a8fa3;--st-doing:#2a78d6;--st-review:#d99400;--st-blocked:#d03b3b;--st-done:#0c9a0c}
++@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300;--s7:#9085e9;--s8:#e66767;
++  --st-todo:#9aa0b8;--st-doing:#3f8ff0;--st-review:#e8a91c;--st-blocked:#e66767;--st-done:#22b422}}
+ .head{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px}
+ .head>div{flex:1 1 300px}
+ .bar{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px}
+-.tabs{display:flex;gap:4px;background:var(--surface-2);padding:3px;border-radius:9px}
++.tabs{display:flex;gap:4px;background:var(--surface-2);padding:3px;border-radius:9px;flex-wrap:wrap}
+ .tabs button{border:0;background:transparent;padding:6px 14px;border-radius:7px;cursor:pointer;font-weight:600;color:var(--ink-2)}
+ .tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+ .bar .ap-field{min-width:150px}
+ .spacer{flex:1}
+ .chk{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--ink-2);padding-bottom:8px}
+ .card{background:var(--surface);border:1px solid var(--line);border-radius:12px}
++.card-h{display:flex;align-items:baseline;gap:8px;padding:14px 16px 0;flex-wrap:wrap}
++.card-h h2{font-family:var(--f-display);font-size:16px;margin:0}
++.card-h .hint{flex:1}
++.card-b{padding:12px 16px 16px}
+ .empty{padding:36px 16px;text-align:center;color:var(--ink-2)}
+ .empty h3{font-family:var(--f-display);font-size:18px;margin:0 0 6px;color:var(--ink)}
+ /* tables */
+@@ -38,37 +45,114 @@ td small{display:block;color:var(--muted);font-size:12px}
+ .nowrap{white-space:nowrap}
+ /* bits */
+ .pill{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;background:var(--surface-2);color:var(--ink-2);white-space:nowrap}
++.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.8}
+ .pill.todo{background:var(--surface-2);color:var(--ink-2)}
+ .pill.doing,.pill.st-1{background:var(--info-soft);color:var(--info-ink)}
+ .pill.review,.pill.st-2{background:var(--warn-soft);color:var(--warn)}
+ .pill.done,.pill.st-3{background:var(--good-soft);color:var(--good-ink)}
+-.pill.st-4{background:var(--crit-soft);color:var(--crit)}
++.pill.blocked,.pill.st-4{background:var(--crit-soft);color:var(--crit)}
+ .prio{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+ .prio.High,.prio.Rush{color:var(--crit)}
+ .late{color:var(--crit);font-weight:600}
++.soon{color:var(--warn);font-weight:600}
+ .av{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;font-size:11px;font-weight:700;color:#fff;flex:none;border:2px solid var(--surface)}
++.av.lg{width:48px;height:48px;font-size:17px}
+ .avs{display:inline-flex}.avs .av+.av{margin-left:-7px}
+ .who{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+-.prog{height:7px;border-radius:4px;background:var(--surface-2);overflow:hidden;min-width:80px}
+-.prog i{display:block;height:100%;background:var(--s3);border-radius:4px}
++.prog{height:7px;border-radius:4px;background:var(--surface-2);overflow:hidden;min-width:60px}
++.prog i{display:block;height:100%;background:var(--c,var(--accent));border-radius:4px}
+ .progw{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-2)}
+ .progw .prog{flex:1}
+-.sel-inline{background:var(--surface);border:1px solid var(--line-strong);border-radius:7px;padding:4px 6px;font-size:13px}
++.progw b{min-width:34px;text-align:right;color:var(--ink);font-variant-numeric:tabular-nums}
++.sel-inline{background:var(--surface);border:1px solid var(--line-strong);border-radius:7px;padding:5px 6px;font-size:13px}
++.new{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);border:1px solid currentColor;border-radius:4px;padding:0 4px;margin-left:6px}
++/* overview */
++.hello{background:var(--accent-soft);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:14px}
++.hello h2{font-family:var(--f-display);font-size:22px;margin:0}
++.hello p{margin:4px 0 0;color:var(--ink-2)}
++.hello .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
++.star{display:inline-flex;align-items:center;gap:8px;margin-top:10px;padding:4px 12px 4px 4px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:13px}
++.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}
++.kpi{padding:14px 16px}
++.kpi.click{cursor:pointer}.kpi.click:hover{border-color:var(--accent)}
++.kpi .l{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:6px}
++.kpi .l i{width:8px;height:8px;border-radius:2px;background:var(--c)}
++.kpi .v{font-family:var(--f-display);font-size:28px;font-weight:700;line-height:1.2;margin-top:4px}
++.kpi .s{font-size:12px;color:var(--ink-2)}
++.kpi .s.bad{color:var(--crit);font-weight:600}.kpi .s.good{color:var(--good-ink);font-weight:600}
++.grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px}
++.c7{grid-column:span 7}.c5{grid-column:span 5}.c12{grid-column:span 12}
++.rows{display:flex;flex-direction:column}
++.prow{display:grid;grid-template-columns:minmax(150px,1.2fr) minmax(110px,2fr) auto;gap:14px;align-items:center;padding:9px 6px;border-bottom:1px solid var(--line);cursor:pointer;border-radius:8px}
++.prow:last-child{border-bottom:0}
++.prow:hover{background:var(--surface-2)}
++.prow .n{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
++.prow small{display:block;color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
++.mini{display:flex;gap:5px;flex-wrap:wrap}
++.mini span{font-size:12px;color:var(--ink-2);background:var(--surface-2);border:1px solid var(--line);padding:0 8px;border-radius:999px;white-space:nowrap}
++.mini span.bad{color:var(--crit);background:var(--crit-soft);border-color:transparent}
++.item{display:flex;gap:12px;align-items:center;padding:9px 4px;border-bottom:1px solid var(--line);cursor:pointer;border-radius:8px}
++.item:last-child{border-bottom:0}
++.item:hover{background:var(--surface-2)}
++.item .mc{flex:1;min-width:0}
++.item .mc b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
++.item .mc small{color:var(--muted);font-size:12px}
++.dbox{width:42px;flex:none;text-align:center;border-radius:9px;padding:3px 0;background:var(--surface-2);border:1px solid var(--line)}
++.dbox .m{font-size:10px;text-transform:uppercase;font-weight:700;color:var(--muted);letter-spacing:.04em}
++.dbox .d{font-size:16px;font-weight:700;line-height:1.1}
++.dbox.late{background:var(--crit-soft);border-color:transparent}.dbox.late .m,.dbox.late .d{color:var(--crit)}
++.sbar{display:flex;height:14px;gap:2px;border-radius:5px;overflow:hidden;margin:4px 0 12px}
++.sbar span{display:block;min-width:3px}
++.legend{display:grid;grid-template-columns:12px 1fr auto auto;gap:7px 10px;align-items:center;font-size:13px}
++.legend i{width:10px;height:10px;border-radius:3px}
++.legend .pct{color:var(--muted);font-size:12px;text-align:right;min-width:34px}
++.feed{display:flex;flex-direction:column}
++.fi{display:flex;gap:10px;padding:8px 2px}
++.fi .b{flex:1;min-width:0;font-size:13px;color:var(--ink-2)}
++.fi .b b{color:var(--ink)}
++.fi .b a{color:var(--accent);font-weight:600;cursor:pointer}
++.fi q{display:block;margin-top:4px;padding:7px 10px;border-radius:9px;background:var(--surface-2);border:1px solid var(--line);color:var(--ink);quotes:none;white-space:pre-wrap;overflow-wrap:anywhere}
++.fi small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+ /* my tasks */
+ .grp h3{font-size:13px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:18px 0 8px}
+ .grp h3.late{color:var(--crit)}
+-.new{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);border:1px solid currentColor;border-radius:4px;padding:0 4px;margin-left:6px}
++.mt{display:grid;grid-template-columns:minmax(0,2fr) minmax(190px,1.3fr) auto;gap:16px;align-items:center;padding:12px 14px;margin-bottom:8px;border-left:4px solid var(--c,var(--line))}
++.mt .t{font-weight:600;font-size:15px;cursor:pointer}
++.mt .t:hover{color:var(--accent)}
++.mt .meta{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:3px;font-size:12px;color:var(--ink-2)}
++.mt .pr{display:flex;align-items:center;gap:10px}
++.mt .pr b{min-width:38px;text-align:right;font-variant-numeric:tabular-nums}
++.mt .act{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
++input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer}
+ /* board */
+-.board{display:grid;grid-template-columns:repeat(4,minmax(220px,1fr));gap:12px;overflow-x:auto;padding-bottom:6px}
+-.col{background:var(--surface-2);border-radius:12px;padding:10px;min-height:200px}
++.board{display:grid;grid-template-columns:repeat(5,minmax(200px,1fr));gap:12px;overflow-x:auto;padding-bottom:6px}
++.col{background:var(--surface-2);border-radius:12px;padding:10px;min-height:200px;border-top:3px solid var(--c)}
+ .col h3{font-size:13px;margin:2px 4px 10px;display:flex;justify-content:space-between;color:var(--ink-2)}
+ .col.over{outline:2px dashed var(--accent);outline-offset:-2px}
+-.tcard{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 11px;margin-bottom:8px;cursor:pointer;display:flex;flex-direction:column;gap:6px}
++.tcard{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 11px;margin-bottom:8px;cursor:pointer;display:flex;flex-direction:column;gap:6px;border-left:3px solid var(--c,var(--line))}
+ .tcard[draggable="true"]{cursor:grab}
+ .tcard:hover{border-color:var(--line-strong)}
+ .tcard b{font-size:14px;line-height:1.3}
+ .tcard .meta{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted)}
+ .tcard .proj{font-size:12px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
++/* project and people cards */
++.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
++.pc{cursor:pointer;overflow:hidden;display:flex;flex-direction:column}
++.pc:hover{border-color:var(--accent)}
++.pc .stripe{height:5px;background:var(--c)}
++.pc .in{padding:14px 16px 16px;display:flex;flex-direction:column;gap:8px;flex:1}
++.pc h3{font-family:var(--f-display);font-size:16px;margin:0}
++.pc .d{color:var(--ink-2);font-size:13px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.8em;margin:0}
++.pc .top{display:flex;justify-content:space-between;align-items:center;gap:8px}
++.pc .foot{display:flex;justify-content:space-between;align-items:center;margin-top:auto}
++.cnt{display:flex;gap:14px;font-size:12px;color:var(--muted)}
++.cnt b{display:block;color:var(--ink);font-size:15px}
++.mc-card{text-align:center;padding:18px 16px;cursor:pointer}
++.mc-card:hover{border-color:var(--accent)}
++.mc-card h3{font-family:var(--f-display);font-size:16px;margin:8px 0 0}
++.mc-card .cnt{justify-content:center;margin:12px 0 6px}
++.load{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600}
++.load i{width:8px;height:8px;border-radius:50%;background:var(--c)}
+ /* drawer */
+ .overlay{position:fixed;inset:0;background:rgba(10,12,14,.45);z-index:40;display:flex;justify-content:flex-end}
+ .drawer{background:var(--bg);width:min(760px,100%);height:100%;display:flex;flex-direction:column;box-shadow:-10px 0 30px rgba(0,0,0,.2)}
+@@ -90,11 +174,16 @@ legend{font-weight:700;font-size:13px;padding:0 6px}
+ .cmt div{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 11px;flex:1;min-width:0}
+ .cmt p{margin:2px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+ .cmt small{color:var(--muted);font-size:12px}
+-input[type=range]{width:100%;accent-color:var(--accent)}
++.quick{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
++.quick button{border:1px solid var(--line-strong);background:var(--surface);border-radius:7px;padding:2px 9px;font-size:12px;font-weight:600;cursor:pointer}
++.quick button:hover{border-color:var(--accent);color:var(--accent)}
+ .settings{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+ .settings .card{padding:16px}
+ .settings h2{font-size:15px;margin:0 0 2px}
+ .settings textarea{width:100%;min-height:150px;background:var(--surface);border:1px solid var(--line-strong);border-radius:8px;padding:8px 10px}
++#confetti{position:fixed;inset:0;pointer-events:none;z-index:300}
++@media (max-width:1000px){.c7,.c5{grid-column:span 12}.mt{grid-template-columns:1fr;gap:10px}}
++@media (max-width:700px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.prow{grid-template-columns:1fr;gap:6px}.board{grid-template-columns:repeat(5,80vw)}}
+ </style>
+ </head><body>
+ <main class="ap-wrap" id="page" hidden>
+@@ -105,19 +194,23 @@ input[type=range]{width:100%;accent-color:var(--accent)}
+   </div>
+   <div class="bar">
+     <nav class="tabs" role="tablist" id="tabs">
++      <button role="tab" data-v="overview">Overview</button>
+       <button role="tab" data-v="mine">My tasks</button>
+       <button role="tab" data-v="board">Board</button>
+       <button role="tab" data-v="projects">Projects</button>
++      <button role="tab" data-v="team">Team</button>
+       <button role="tab" data-v="settings" id="tab-settings" hidden>Settings</button>
+     </nav>
+     <span class="spacer"></span>
+     <label class="ap-field" id="f-person-w"><span>Person</span><select id="f-person"></select></label>
+-    <label class="ap-field" style="min-width:200px"><span>Search</span><input type="search" id="f-q" placeholder="Project or task"></label>
++    <label class="ap-field" id="f-q-w" style="min-width:200px"><span>Search</span><input type="search" id="f-q" placeholder="Project or task"></label>
+     <label class="chk"><input type="checkbox" id="f-done"> Show finished</label>
+   </div>
+-  <section id="v-mine"></section>
++  <section id="v-overview"></section>
++  <section id="v-mine" hidden></section>
+   <section id="v-board" hidden><div class="board" id="board"></div></section>
+-  <section id="v-projects" hidden><div class="card"><div class="tw"><table id="ptbl"></table></div></div></section>
++  <section id="v-projects" hidden></section>
++  <section id="v-team" hidden></section>
+   <section id="v-settings" hidden>
+     <div class="settings">
+       <div class="card"><h2>Project statuses</h2><p class="hint" style="margin:0 0 8px">One per line. The first is used for new projects; any status containing "Done" or "Cancel" counts as finished.</p><textarea id="s-statuses" aria-label="Project statuses"></textarea></div>
+@@ -132,95 +225,232 @@ APP.ready.then(()=>{
+ "use strict";
+ const db=APP.fs,esc=APP.esc,me=APP.member.email,FULL=APP.level("projects")==="full";
+ const $=s=>document.querySelector(s);
+-const TASK_ST=[["todo","To do"],["doing","In progress"],["review","Review"],["done","Done"]];
++const TASK_ST=[["todo","To do"],["doing","In progress"],["review","Review"],["blocked","Blocked"],["done","Done"]];
+ const TST=Object.fromEntries(TASK_ST);
+ const PRIOS=["Normal","High","Rush","Low"];
+ const DEF={statuses:["Planning","In progress","On hold","Done","Cancelled"],
+   steps:[]};
+ const TODAY=new Date().toLocaleDateString("en-CA");
++const WEEK_AGO=Date.now()-7*864e5;
+ const has=v=>v!==undefined&&v!==null&&v!=="";
+ let P=[],T=[],PEOPLE=[],NAMES={},SET=structuredClone(DEF),loadedP=false,loadedT=false;
+-const ui={view:FULL?"projects":"mine",q:"",person:"all",done:false};
++const VIEWS=["overview","mine","board","projects","team","settings"];
++const ui={view:FULL?"overview":"mine",q:"",person:"all",done:false};
+ try{Object.assign(ui,JSON.parse(localStorage.getItem("pm-ui")||"{}"))}catch(e){}
+-if(ui.view==="settings"&&!FULL)ui.view="mine";
++if(!VIEWS.includes(ui.view)||(ui.view==="settings"&&!FULL))ui.view=FULL?"overview":"mine";
+ const saveUi=()=>{try{localStorage.setItem("pm-ui",JSON.stringify(ui))}catch(e){}};
+ let lastSeen="";try{lastSeen=localStorage.getItem("pm-seen-"+me)||""}catch(e){}
+ const markSeen=()=>{try{localStorage.setItem("pm-seen-"+me,new Date().toISOString())}catch(e){}};
+ 
+ // ---------- helpers ----------
+ const nameOf=e=>NAMES[e]||e||"";
++const first=e=>nameOf(e).split(/[\s(]/)[0];
+ const initials=e=>{const n=nameOf(e).replace(/\(.*\)/,"").trim().split(/\s+/);return ((n[0]||"?")[0]+((n[1]||"")[0]||"")).toUpperCase()};
+ const colorOf=e=>{let h=0;for(const c of String(e))h=(h*31+c.charCodeAt(0))|0;return `var(--s${Math.abs(h)%8+1})`};
+-const av=e=>e?`<span class="av" style="background:${colorOf(e)}" title="${esc(nameOf(e))}">${esc(initials(e))}</span>`:"";
++const av=(e,cls)=>e?`<span class="av ${cls||""}" style="background:${colorOf(e)}" title="${esc(nameOf(e))}">${esc(initials(e))}</span>`:"";
+ const who=e=>e?`<span class="who">${av(e)}${esc(nameOf(e))}</span>`:'<span class="hint">Unassigned</span>';
+ const fmtD=d=>{if(!d)return "—";const x=new Date(d+"T00:00");return x.toLocaleDateString("en-CA",{month:"short",day:"numeric",...(d.slice(0,4)!==TODAY.slice(0,4)?{year:"numeric"}:{})})};
++const daysTo=d=>Math.round((new Date(d+"T00:00")-new Date(TODAY+"T00:00"))/864e5);
+ const isLate=t=>t.status!=="done"&&has(t.dueDate)&&t.dueDate<TODAY;
+-const due=t=>`<span class="${isLate(t)?"late":""}">${fmtD(t.dueDate)}${isLate(t)?" · late":""}</span>`;
++function due(t){
++  if(!has(t.dueDate))return '<span class="hint">No due date</span>';
++  if(t.status==="done")return `<span>${fmtD(t.dueDate)}</span>`;
++  const n=daysTo(t.dueDate);
++  if(n<0)return `<span class="late">${fmtD(t.dueDate)} · ${-n}d late</span>`;
++  if(n===0)return '<span class="soon">Due today</span>';
++  if(n===1)return '<span class="soon">Due tomorrow</span>';
++  return `<span>${fmtD(t.dueDate)}</span>`;
++}
+ const finished=p=>/done|cancel/i.test(p.status||"");
+ const stIdx=s=>{const i=SET.statuses.indexOf(s);return /cancel/i.test(s||"")?4:/done/i.test(s||"")?3:i<=0?0:Math.min(i,2)};
+ const projOf=id=>P.find(p=>p._id===id);
+ const tasksOf=id=>T.filter(t=>t.projectId===id);
+ const canEditTask=t=>FULL||t.assignee===me;
+ const canAddTo=p=>FULL||(p.team||[]).includes(me);
+-const prog=(pct,label)=>`<span class="progw"><span class="prog"><i style="width:${Math.max(0,Math.min(100,pct))}%"></i></span>${label??Math.round(pct)+"%"}</span>`;
++const avg=a=>a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length):0;
++const plural=(n,w)=>`${n} ${w}${n===1?"":"s"}`;
++const prog=(pct,label,color)=>`<span class="progw"><span class="prog" ${color?`style="--c:${color}"`:""}><i style="width:${Math.max(0,Math.min(100,pct))}%"></i></span>${label??`<b>${Math.round(pct)}%</b>`}</span>`;
++const pColor=p=>p?colorOf(p._id):"var(--line)";
++const ST_COLOR={todo:"var(--st-todo)",doing:"var(--st-doing)",review:"var(--st-review)",blocked:"var(--st-blocked)",done:"var(--st-done)"};
++const stPill=s=>`<span class="pill ${esc(s)}">${esc(TST[s]||s)}</span>`;
+ const err=e=>e&&e.code==="permission-denied"?"You don't have permission to do that.":"Couldn't save. Check your connection and try again.";
++const isOpenP=t=>!finished(projOf(t.projectId)||{});
+ function matchQ(t,p){const q=ui.q.trim().toLowerCase();if(!q)return true;
+-  return [t&&t.title,t&&t.description,p&&p.name].some(v=>String(v||"").toLowerCase().includes(q))}
++  return [t&&t.title,t&&t.description,p&&p.name,t&&nameOf(t.assignee)].some(v=>String(v||"").toLowerCase().includes(q))}
+ function personOk(t){return ui.person==="all"||t.assignee===ui.person}
+ function sortTasks(a,b){return (a.dueDate||"9999").localeCompare(b.dueDate||"9999")||(a.order||0)-(b.order||0)||String(a.title).localeCompare(String(b.title))}
++const doneThisWeek=t=>t.status==="done"&&t.doneAt&&new Date(t.doneAt).getTime()>=WEEK_AGO;
++function stats(e){
++  const mine=T.filter(t=>t.assignee===e),open=mine.filter(t=>t.status!=="done");
++  return {open,done:mine.filter(t=>t.status==="done"),late:open.filter(isLate),blocked:open.filter(t=>t.status==="blocked"),
++    week:mine.filter(doneThisWeek),avg:avg(open.map(t=>t.progress||0))};
++}
++function load(n){
++  if(n===0)return {l:"Available",c:"var(--st-done)"};
++  if(n<=3)return {l:"Light load",c:"var(--st-doing)"};
++  if(n<=6)return {l:"Balanced",c:"var(--st-review)"};
++  return {l:"Heavy load",c:"var(--st-blocked)"};
++}
++// people shown in team views: everyone with Projects access (full) / the people on your projects (limited)
++function teamPeople(){
++  const set=new Set(FULL?PEOPLE.map(p=>p.email):[]);
++  P.forEach(p=>(p.team||[]).forEach(e=>set.add(e)));T.forEach(t=>t.assignee&&set.add(t.assignee));
++  return [...set].sort((a,b)=>nameOf(a).localeCompare(nameOf(b)));
++}
+ 
+ // ---------- render ----------
+ function render(){
+   document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.v===ui.view));
+-  ["mine","board","projects","settings"].forEach(v=>$("#v-"+v).hidden=v!==ui.view);
+-  $("#f-person-w").hidden=!FULL||ui.view==="mine"||ui.view==="settings";
+-  $("#f-done").closest("label").hidden=ui.view==="settings";
++  VIEWS.forEach(v=>$("#v-"+v).hidden=v!==ui.view);
++  $("#f-person-w").hidden=!FULL||!["board","projects"].includes(ui.view);
++  $("#f-q-w").hidden=["overview","team","settings"].includes(ui.view);
++  $("#f-done").closest("label").hidden=!["mine","board","projects"].includes(ui.view);
+   const open=T.filter(t=>t.assignee===me&&t.status!=="done").length;
+   $("#sub").textContent=FULL?`${P.filter(p=>!finished(p)).length} active projects · ${T.filter(t=>t.status!=="done").length} open tasks · you have ${open}`
+     :`Projects you're on. You have ${open} open task${open===1?"":"s"}.`;
+   document.querySelector('#tabs [data-v="mine"]').textContent=`My tasks${open?` (${open})`:""}`;
+   fillSelect($("#f-person"),[["all","Everyone"],...PEOPLE.map(p=>[p.email,p.name])],ui.person);
+-  if(ui.view==="mine")renderMine();else if(ui.view==="board")renderBoard();else if(ui.view==="projects")renderProjects();else renderSettings();
++  ({overview:renderOverview,mine:renderMine,board:renderBoard,projects:renderProjects,team:renderTeam,settings:renderSettings})[ui.view]();
+ }
+ function fillSelect(el,opts,val){el.innerHTML=opts.map(([v,l])=>`<option value="${esc(v)}"${v===val?" selected":""}>${esc(l)}</option>`).join("")}
+-function taskRow(t,showProj){const p=projOf(t.projectId);const isNew=t.assignee===me&&lastSeen&&(t.assignedAt||t.createdAt||"")>lastSeen&&t.assignedBy!==me;
+-  return `<tr class="click" data-task="${t._id}"><td><b>${esc(t.title)}</b>${isNew?'<span class="new">New</span>':""}${showProj&&p?`<small>${esc(p.name)}</small>`:""}</td>
+-    <td class="nowrap">${canEditTask(t)?`<select class="sel-inline" data-st="${t._id}" aria-label="Status">${TASK_ST.map(([v,l])=>`<option value="${v}"${t.status===v?" selected":""}>${l}</option>`).join("")}</select>`:`<span class="pill ${t.status}">${TST[t.status]||t.status}</span>`}</td>
+-    <td class="nowrap">${due(t)}</td><td>${t.priority&&t.priority!=="Normal"?`<span class="prio ${esc(t.priority)}">${esc(t.priority)}</span>`:""}</td>
+-    <td style="min-width:110px">${prog(t.progress||0)}</td>${showProj==="who"?`<td>${who(t.assignee)}</td>`:""}</tr>`}
++
++function renderOverview(){
++  const el=$("#v-overview");
++  if(!loadedT||!loadedP){el.innerHTML='<div class="card empty">Loading…</div>';return}
++  const vis=T.filter(isOpenP);
++  const open=vis.filter(t=>t.status!=="done"),late=open.filter(isLate),doing=open.filter(t=>t.status==="doing"),blocked=open.filter(t=>t.status==="blocked");
++  const week=T.filter(doneThisWeek);
++  const mineOpen=open.filter(t=>t.assignee===me),mineSoon=mineOpen.filter(t=>has(t.dueDate)&&daysTo(t.dueDate)<=2);
++  let star=null;teamPeople().forEach(e=>{const n=T.filter(t=>t.assignee===e&&doneThisWeek(t)).length;if(n&&(!star||n>star.n))star={e,n}});
++  const h=new Date().getHours(),greet=h<12?"Good morning":h<17?"Good afternoon":"Good evening";
++  const kpi=(l,v,s,c,cls,go)=>`<div class="card kpi${go?" click":""}" ${go?`data-go="${go}"`:""}><div class="l"><i style="--c:${c}"></i>${l}</div><div class="v">${v}</div><div class="s ${cls||""}">${s}</div></div>`;
++  el.innerHTML=`
++    <div class="hello">
++      <h2>${greet}, ${esc(first(me))} ✨</h2>
++      <p>${mineOpen.length?`You have <b>${plural(mineOpen.length,"open task")}</b>${mineSoon.length?`, <b>${mineSoon.length}</b> due within 2 days`:""}.`:"You have no open tasks right now."}
++        The team has <b>${plural(open.length,"open task")}</b> across <b>${plural(P.filter(p=>!finished(p)).length,"active project")}</b>.</p>
++      ${star?`<div class="star">${av(star.e)}<span>⭐ Star of the week: <b>${esc(nameOf(star.e))}</b>, ${plural(star.n,"task")} done</span></div>`:""}
++      <div class="row"><button class="ap-btn ap-primary" data-go="mine">Update my tasks</button><button class="ap-btn" data-go="board">Open the board</button></div>
++    </div>
++    <div class="kpis">
++      ${kpi("Open tasks",open.length,`${plural(vis.length,"task")} in total`,"var(--st-todo)","","board")}
++      ${kpi("In progress",doing.length,blocked.length?`${blocked.length} blocked`:"Nothing blocked","var(--st-doing)",blocked.length?"bad":"good","board")}
++      ${kpi("Late",late.length,late.length?"Needs attention":"All on schedule","var(--st-blocked)",late.length?"bad":"good")}
++      ${kpi("Done this week",week.length,`Average progress ${avg(open.map(t=>t.progress||0))}%`,"var(--st-done)")}
++    </div>
++    <div class="grid">
++      <section class="card c7"><div class="card-h"><h2>Team progress</h2><span class="hint">Average progress on each person's open tasks</span><button class="ap-link" data-go="team">Team →</button></div><div class="card-b">${teamRows()}</div></section>
++      <section class="card c5"><div class="card-h"><h2>Deadlines</h2><span class="hint">Late and next 7 days</span></div><div class="card-b">${deadlines(open)}</div></section>
++      <section class="card c7"><div class="card-h"><h2>Project progress</h2><span class="hint"></span><button class="ap-link" data-go="projects">All projects →</button></div><div class="card-b">${projectRows()}</div></section>
++      <section class="card c5"><div class="card-h"><h2>Tasks by status</h2><span class="hint">${plural(vis.length,"task")}</span></div><div class="card-b">${statusBreakdown(vis)}</div></section>
++      <section class="card c12"><div class="card-h"><h2>Latest updates</h2></div><div class="card-b">${feed(12)}</div></section>
++    </div>`;
++}
++function teamRows(){
++  const ppl=teamPeople();
++  if(!ppl.length)return '<div class="empty">No one on a project yet.</div>';
++  return `<div class="rows">${ppl.map(e=>({e,s:stats(e)})).sort((a,b)=>b.s.open.length-a.s.open.length||nameOf(a.e).localeCompare(nameOf(b.e))).map(({e,s})=>`
++    <div class="prow" data-person="${esc(e)}"><span class="who" style="min-width:0">${av(e)}<span style="min-width:0"><span class="n">${esc(nameOf(e))}</span><small>${esc(load(s.open.length).l)}</small></span></span>
++      <span>${s.open.length?prog(s.avg,null,colorOf(e)):'<span class="hint">No open tasks 🎉</span>'}</span>
++      <span class="mini"><span><b>${s.open.length}</b> open</span><span><b>${s.done.length}</b> done</span>${s.late.length?`<span class="bad"><b>${s.late.length}</b> late</span>`:""}${s.blocked.length?`<span class="bad"><b>${s.blocked.length}</b> blocked</span>`:""}</span></div>`).join("")}</div>`;
++}
++function deadlines(open){
++  const ts=open.filter(t=>has(t.dueDate)&&daysTo(t.dueDate)<=7).sort(sortTasks).slice(0,8);
++  if(!ts.length)return '<div class="empty"><h3>Nothing due this week</h3>No late tasks either.</div>';
++  return ts.map(t=>{const d=new Date(t.dueDate+"T00:00"),p=projOf(t.projectId);
++    return `<div class="item" data-task="${t._id}"><div class="dbox ${isLate(t)?"late":""}"><div class="m">${d.toLocaleDateString("en-CA",{month:"short"})}</div><div class="d">${d.getDate()}</div></div>
++      <div class="mc"><b>${esc(t.title)}</b><small>${p?esc(p.name):""}</small></div>${due(t)}${av(t.assignee)}</div>`}).join("");
++}
++function projectRows(){
++  const ps=P.filter(p=>!finished(p));
++  if(!ps.length)return `<div class="empty"><h3>No active projects</h3>${FULL?"Click <b>+ New project</b> to start one.":""}</div>`;
++  return ps.sort((a,b)=>(a.dueDate||"9999").localeCompare(b.dueDate||"9999")).map(p=>{const ts=tasksOf(p._id),dn=ts.filter(t=>t.status==="done").length,lt=ts.filter(isLate).length;
++    return `<div class="item" data-proj="${p._id}"><div class="mc"><b>${esc(p.name)}</b>${prog(avg(ts.map(t=>t.progress||0)),null,pColor(p))}
++      <small>${dn}/${ts.length} tasks done${lt?` · <span class="late">${lt} late</span>`:""}${p.dueDate?` · due ${fmtD(p.dueDate)}`:""}</small></div>
++      <span class="avs">${(p.team||[]).slice(0,4).map(e=>av(e)).join("")}</span></div>`}).join("");
++}
++function statusBreakdown(ts){
++  if(!ts.length)return '<div class="empty">No tasks yet.</div>';
++  const c=TASK_ST.map(([k,l])=>({k,l,n:ts.filter(t=>t.status===k).length}));
++  return `<div class="sbar" role="img" aria-label="Tasks by status">${c.filter(x=>x.n).map(x=>`<span style="flex:${x.n};background:${ST_COLOR[x.k]}" title="${x.l}: ${x.n}"></span>`).join("")}</div>
++    <div class="legend">${c.map(x=>`<i style="background:${ST_COLOR[x.k]}"></i><span>${x.l}</span><b>${x.n}</b><span class="pct">${Math.round(x.n/ts.length*100)}%</span>`).join("")}</div>`;
++}
++// recent events, worked out from the tasks themselves (created, assigned, finished, comments)
++function feed(n,onlyBy){
++  const ev=[];
++  T.forEach(t=>{
++    if(t.createdAt)ev.push({at:t.createdAt,by:t.createdBy,t,txt:"created"});
++    if(t.assignedAt&&t.assignedAt!==t.createdAt&&t.assignee)ev.push({at:t.assignedAt,by:t.assignedBy,t,txt:`assigned to ${esc(first(t.assignee))}:`});
++    if(t.status==="done"&&t.doneAt)ev.push({at:t.doneAt,by:t.assignee,t,txt:"finished ✅"});
++    (t.comments||[]).forEach(c=>ev.push({at:c.at,by:c.by,t,txt:"commented on",q:c.text}));
++  });
++  const list=ev.filter(x=>x.at&&(!onlyBy||x.by===onlyBy)).sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0,n);
++  if(!list.length)return '<div class="empty">Nothing yet.</div>';
++  const when=at=>{const s=(Date.now()-new Date(at))/1e3;return s<60?"just now":s<3600?`${Math.floor(s/60)}m ago`:s<86400?`${Math.floor(s/3600)}h ago`:s<172800?"yesterday":s<604800?`${Math.floor(s/86400)}d ago`:new Date(at).toLocaleDateString("en-CA",{month:"short",day:"numeric"})};
++  return `<div class="feed">${list.map(x=>`<div class="fi">${av(x.by)}<div class="b"><b>${esc(nameOf(x.by)||"Someone")}</b> ${x.txt} <a data-task="${x.t._id}">${esc(x.t.title)}</a>${x.q?`<q>${esc(x.q)}</q>`:""}<small>${when(x.at)}</small></div></div>`).join("")}</div>`;
++}
++
+ function renderMine(){
+   const el=$("#v-mine");
+   if(!loadedT){el.innerHTML='<div class="card empty">Loading…</div>';return}
+-  const mine=T.filter(t=>t.assignee===me&&(ui.done||t.status!=="done")&&matchQ(t,projOf(t.projectId))).sort(sortTasks);
+-  if(!mine.length){el.innerHTML=`<div class="card empty"><h3>No tasks for you${ui.done?"":" right now"}</h3>${FULL?"Create a project, or assign yourself a task.":"When someone assigns you a task, it shows up here."}</div>`;markSeen();return}
+-  const week=new Date(Date.now()+7*864e5).toLocaleDateString("en-CA");
+-  const groups=[["Late",t=>isLate(t),"late"],["Due this week",t=>!isLate(t)&&has(t.dueDate)&&t.dueDate<=week&&t.status!=="done"],["Later",t=>!isLate(t)&&has(t.dueDate)&&t.dueDate>week&&t.status!=="done"],
+-    ["No due date",t=>!has(t.dueDate)&&t.status!=="done"],["Done",t=>t.status==="done"]];
+-  el.innerHTML=groups.map(([l,f,cls])=>{const ts=mine.filter(f);return ts.length?`<div class="grp"><h3 class="${cls||""}">${l} (${ts.length})</h3><div class="card"><div class="tw"><table><thead><tr><th>Task</th><th>Status</th><th>Due</th><th>Priority</th><th>Progress</th></tr></thead><tbody>${ts.map(t=>taskRow(t,true)).join("")}</tbody></table></div></div></div>`:""}).join("");
++  const mine=T.filter(t=>t.assignee===me&&matchQ(t,projOf(t.projectId)));
++  const twoWeeks=Date.now()-14*864e5;
++  const attn=mine.filter(t=>t.status!=="done"&&(isLate(t)||t.status==="blocked")),ids=new Set(attn.map(t=>t._id));
++  const groups=[["⚠️ Needs attention",attn,"late"],["In progress",mine.filter(t=>t.status==="doing"&&!ids.has(t._id))],["To do",mine.filter(t=>t.status==="todo"&&!ids.has(t._id))],
++    ["In review",mine.filter(t=>t.status==="review"&&!ids.has(t._id))],
++    [ui.done?"🎉 Done":"🎉 Done in the last 2 weeks",mine.filter(t=>t.status==="done"&&(ui.done||(t.doneAt&&new Date(t.doneAt).getTime()>=twoWeeks)))]];
++  const s=stats(me);
++  const head=`<div class="kpis">
++      <div class="card kpi"><div class="l"><i style="--c:var(--st-todo)"></i>My open tasks</div><div class="v">${s.open.length}</div><div class="s">${s.week.length} finished this week</div></div>
++      <div class="card kpi"><div class="l"><i style="--c:var(--accent)"></i>My average progress</div><div class="v">${s.avg}%</div>${prog(s.avg,"")}</div>
++      <div class="card kpi"><div class="l"><i style="--c:var(--st-blocked)"></i>Late</div><div class="v">${s.late.length}</div><div class="s ${s.late.length?"bad":"good"}">${s.late.length?"Please update these":"You're on track"}</div></div>
++      <div class="card kpi"><div class="l"><i style="--c:var(--st-done)"></i>Done</div><div class="v">${s.done.length}</div><div class="s">All time</div></div></div>
++    <p class="hint" style="margin:0 0 6px">Drag a slider to update your progress (it saves by itself), or press <b>✓ Done</b> when a task is finished. <b>Add note</b> lets you post an update.</p>`;
++  if(!mine.length){el.innerHTML=head+`<div class="card empty"><h3>No tasks for you right now</h3>${FULL?"Create a project, or assign yourself a task.":"When someone assigns you a task, it shows up here."}</div>`;markSeen();return}
++  el.innerHTML=head+groups.map(([l,ts,cls])=>ts.length?`<div class="grp"><h3 class="${cls||""}">${l} (${ts.length})</h3>${ts.sort(sortTasks).map(myCard).join("")}</div>`:"").join("");
+   markSeen();
+ }
++function myCard(t){
++  const p=projOf(t.projectId),isNew=lastSeen&&(t.assignedAt||t.createdAt||"")>lastSeen&&t.assignedBy!==me;
++  return `<div class="card mt" style="--c:${pColor(p)}"><div style="min-width:0"><div class="t" data-task="${t._id}">${esc(t.title)}${isNew?'<span class="new">New</span>':""}</div>
++      <div class="meta">${p?`<span>${esc(p.name)}</span>`:""}${t.priority&&t.priority!=="Normal"?`<span class="prio ${esc(t.priority)}">${esc(t.priority)}</span>`:""}${due(t)}</div></div>
++    <div class="pr"><input type="range" min="0" max="100" step="5" value="${t.progress||0}" data-prog="${t._id}" aria-label="Progress for ${esc(t.title)}"><b data-progv="${t._id}">${t.progress||0}%</b></div>
++    <div class="act"><select class="sel-inline" data-st="${t._id}" aria-label="Status">${TASK_ST.map(([v,l])=>`<option value="${v}"${t.status===v?" selected":""}>${l}</option>`).join("")}</select>
++      ${t.status!=="done"?`<button class="ap-btn ap-primary ap-small" data-done="${t._id}">✓ Done</button>`:""}<button class="ap-btn ap-small" data-task="${t._id}">Add note</button></div></div>`;
++}
+ function renderBoard(){
+-  const vis=T.filter(t=>personOk(t)&&matchQ(t,projOf(t.projectId))&&(ui.done||!finished(projOf(t.projectId)||{})));
++  const vis=T.filter(t=>personOk(t)&&matchQ(t,projOf(t.projectId))&&(ui.done||isOpenP(t)));
+   $("#board").innerHTML=TASK_ST.map(([s,l])=>{let ts=vis.filter(t=>t.status===s).sort(sortTasks);const n=ts.length;
+     if(s==="done"&&!ui.done)ts=ts.sort((a,b)=>String(b.doneAt||"").localeCompare(String(a.doneAt||""))).slice(0,15);
+-    return `<div class="col" data-col="${s}"><h3><span>${l}</span><span>${n}</span></h3>${ts.map(t=>{const p=projOf(t.projectId);
+-      return `<div class="tcard" data-task="${t._id}" draggable="${canEditTask(t)}"><b>${esc(t.title)}</b>${p?`<span class="proj">${esc(p.name)}</span>`:""}
+-        ${t.progress&&s!=="done"?prog(t.progress):""}<span class="meta">${due(t)}${av(t.assignee)}</span></div>`}).join("")||'<p class="hint" style="margin:4px">Nothing here.</p>'}
++    return `<div class="col" data-col="${s}" style="--c:${ST_COLOR[s]}"><h3>${stPill(s)}<span>${n}</span></h3>${ts.map(t=>{const p=projOf(t.projectId);
++      return `<div class="tcard" data-task="${t._id}" draggable="${canEditTask(t)}" style="--c:${pColor(p)}"><b>${esc(t.title)}</b>${p?`<span class="proj">${esc(p.name)}</span>`:""}
++        ${s!=="done"?prog(t.progress||0,null,pColor(p)):""}<span class="meta">${due(t)}${av(t.assignee)}</span></div>`}).join("")||'<p class="hint" style="margin:4px">Nothing here.</p>'}
+       ${s==="done"&&!ui.done&&n>15?`<p class="hint" style="margin:4px">Showing the 15 most recent. Tick "Show finished" for all.</p>`:""}</div>`}).join("");
+ }
+ function renderProjects(){
+-  if(!loadedP){$("#ptbl").innerHTML='<tbody><tr><td class="empty">Loading…</td></tr></tbody>';return}
++  const el=$("#v-projects");
++  if(!loadedP){el.innerHTML='<div class="card empty">Loading…</div>';return}
+   const list=P.filter(p=>(ui.done||!finished(p))&&(ui.person==="all"||(p.team||[]).includes(ui.person)||p.lead===ui.person)&&matchQ(null,p))
+     .sort((a,b)=>finished(a)-finished(b)||(a.dueDate||"9999").localeCompare(b.dueDate||"9999"));
+-  if(!list.length){$("#ptbl").innerHTML=`<tbody><tr><td class="empty"><h3>No projects${P.length?" match":" yet"}</h3>${FULL&&!P.length?"Click <b>+ New project</b> to start one, for example Trade show prep.":""}</td></tr></tbody>`;return}
+-  $("#ptbl").innerHTML=`<thead><tr><th>Project</th><th>Status</th><th>Due</th><th>Lead</th><th>Team</th><th>Progress</th></tr></thead><tbody>`+
+-    list.map(p=>{const ts=tasksOf(p._id),done=ts.filter(t=>t.status==="done").length,late=ts.filter(isLate).length;
+-      const pLate=!finished(p)&&has(p.dueDate)&&p.dueDate<TODAY;
+-      return `<tr class="click" data-proj="${p._id}"><td><b>${esc(p.name)}</b>${p.priority&&p.priority!=="Normal"?`<small><span class="prio ${esc(p.priority)}">${esc(p.priority)}</span></small>`:""}</td>
+-      <td><span class="pill st-${stIdx(p.status)}">${esc(p.status||"—")}</span></td>
+-      <td class="nowrap"><span class="${pLate?"late":""}">${fmtD(p.dueDate)}${pLate?" · late":""}</span></td>
+-      <td>${p.lead?who(p.lead):"—"}</td><td><span class="avs">${(p.team||[]).slice(0,6).map(av).join("")}</span></td>
+-      <td style="min-width:150px">${ts.length?prog(done/ts.length*100,`${done}/${ts.length}${late?` · <span class="late">${late} late</span>`:""}`):'<span class="hint">No tasks</span>'}</td></tr>`}).join("")+"</tbody>";
++  if(!list.length){el.innerHTML=`<div class="card empty"><h3>No projects${P.length?" match":" yet"}</h3>${FULL&&!P.length?"Click <b>+ New project</b> to start one, for example Trade show prep.":""}</div>`;return}
++  el.innerHTML=`<div class="cards">${list.map(p=>{const ts=tasksOf(p._id),dn=ts.filter(t=>t.status==="done").length,lt=ts.filter(isLate).length;
++    const pLate=!finished(p)&&has(p.dueDate)&&p.dueDate<TODAY;
++    return `<article class="card pc" data-proj="${p._id}" style="--c:${pColor(p)}"><div class="stripe"></div><div class="in">
++      <div class="top"><span class="pill st-${stIdx(p.status)}">${esc(p.status||"—")}</span><span class="${pLate?"late":"hint"}">${p.dueDate?`Due ${fmtD(p.dueDate)}`:""}</span></div>
++      <h3>${esc(p.name)}${p.priority&&p.priority!=="Normal"?` <span class="prio ${esc(p.priority)}">${esc(p.priority)}</span>`:""}</h3>
++      <p class="d">${esc(p.description||(p.lead?"Lead: "+nameOf(p.lead):"No notes."))}</p>
++      ${ts.length?prog(avg(ts.map(t=>t.progress||0)),null,pColor(p)):'<span class="hint">No tasks yet</span>'}
++      <div class="foot"><div class="cnt"><div><b>${ts.length}</b>tasks</div><div><b>${dn}</b>done</div><div><b class="${lt?"late":""}">${lt}</b>late</div></div>
++        <span class="avs">${(p.team||[]).slice(0,5).map(e=>av(e)).join("")}</span></div></div></article>`}).join("")}</div>`;
++}
++function renderTeam(){
++  const el=$("#v-team");const ppl=teamPeople();
++  if(!ppl.length){el.innerHTML='<div class="card empty"><h3>No one yet</h3>Give people Projects access on the Team &amp; Access page, then add them to a project.</div>';return}
++  el.innerHTML=`<p class="hint" style="margin:0 0 10px">${FULL?"Everyone with Projects access.":"People on your projects."} Click a person to see their tasks.</p><div class="cards">${ppl.map(e=>{const s=stats(e),w=load(s.open.length);
++    return `<article class="card mc-card" data-person="${esc(e)}">${av(e,"lg")}<h3>${esc(nameOf(e))}</h3>
++      <div style="margin-top:10px">${s.open.length?prog(s.avg,null,colorOf(e)):'<span class="hint">No open tasks</span>'}</div>
++      <div class="cnt"><div><b>${s.open.length}</b>open</div><div><b>${s.week.length}</b>done this week</div><div><b class="${s.late.length?"late":""}">${s.late.length}</b>late</div></div>
++      <span class="load" style="--c:${w.c}"><i></i>${w.l}</span></article>`}).join("")}</div>`;
+ }
+ function renderSettings(){
+   if(document.activeElement&&document.activeElement.closest("#v-settings"))return;
+@@ -228,7 +458,8 @@ function renderSettings(){
+ }
+ 
+ // ---------- events ----------
+-$("#tabs").onclick=e=>{const v=e.target.dataset?.v;if(v){ui.view=v;saveUi();render()}};
++const goView=v=>{if(!VIEWS.includes(v))return;ui.view=v;saveUi();render();window.scrollTo(0,0)};
++$("#tabs").onclick=e=>{const v=e.target.dataset?.v;if(v)goView(v)};
+ $("#f-person").onchange=e=>{ui.person=e.target.value;saveUi();render()};
+ $("#f-q").value=ui.q;$("#f-q").oninput=e=>{ui.q=e.target.value;saveUi();render()};
+ $("#f-done").checked=ui.done;$("#f-done").onchange=e=>{ui.done=e.target.checked;saveUi();render()};
+@@ -236,15 +467,23 @@ $("#btn-proj").hidden=!FULL;$("#tab-settings").hidden=!FULL;
+ $("#btn-proj").onclick=()=>openProject(null);
+ $("#btn-task").onclick=()=>{const ok=P.filter(p=>canAddTo(p)&&!finished(p));if(!ok.length){APP.toast(FULL?"Create a project first.":"You're not on any open project yet.");return}openTask(null,null)};
+ document.querySelector("main").addEventListener("click",e=>{
+-  if(e.target.closest("select"))return;
++  if(e.target.closest("select,input"))return;
++  const d=e.target.closest("[data-done]");if(d){d.disabled=true;setStatus(T.find(t=>t._id===d.dataset.done),"done");return}
++  const g=e.target.closest("[data-go]");if(g){goView(g.dataset.go);return}
+   const t=e.target.closest("[data-task]");if(t){openTask(t.dataset.task);return}
+-  const p=e.target.closest("[data-proj]");if(p)openProject(p.dataset.proj)});
+-document.querySelector("main").addEventListener("change",e=>{const id=e.target.dataset.st;if(id)setStatus(T.find(t=>t._id===id),e.target.value)});
++  const p=e.target.closest("[data-proj]");if(p){openProject(p.dataset.proj);return}
++  const m=e.target.closest("[data-person]");if(m)openPerson(m.dataset.person)});
++document.querySelector("main").addEventListener("change",e=>{
++  const id=e.target.dataset.st;if(id){setStatus(T.find(t=>t._id===id),e.target.value);return}
++  const pid=e.target.dataset.prog;if(pid)setProgress(T.find(t=>t._id===pid),+e.target.value)});
++document.querySelector("main").addEventListener("input",e=>{const pid=e.target.dataset.prog;if(pid){const b=document.querySelector(`[data-progv="${pid}"]`);if(b)b.textContent=e.target.value+"%"}});
+ // board drag and drop
+-$("#board").addEventListener("dragstart",e=>{const c=e.target.closest(".tcard");if(c)e.dataTransfer.setData("text/plain",c.dataset.task)});
++let dragging=false;
++$("#board").addEventListener("dragstart",e=>{const c=e.target.closest(".tcard");if(c){dragging=true;e.dataTransfer.setData("text/plain",c.dataset.task)}});
++$("#board").addEventListener("dragend",()=>{dragging=false;if(pending)refresh()});
+ $("#board").addEventListener("dragover",e=>{const col=e.target.closest(".col");if(col){e.preventDefault();col.classList.add("over")}});
+ $("#board").addEventListener("dragleave",e=>{const col=e.target.closest(".col");if(col&&!col.contains(e.relatedTarget))col.classList.remove("over")});
+-$("#board").addEventListener("drop",e=>{const col=e.target.closest(".col");if(!col)return;e.preventDefault();col.classList.remove("over");
++$("#board").addEventListener("drop",e=>{const col=e.target.closest(".col");if(!col)return;e.preventDefault();col.classList.remove("over");dragging=false;
+   const t=T.find(x=>x._id===e.dataTransfer.getData("text/plain"));if(t&&t.status!==col.dataset.col)setStatus(t,col.dataset.col)});
+ $("#s-save").onclick=async()=>{
+   const lines=s=>[...new Set($(s).value.split("\n").map(x=>x.trim()).filter(Boolean))];
+@@ -257,7 +496,22 @@ async function setStatus(t,s){
+   if(!t||!canEditTask(t))return;
+   const upd={status:s,updatedAt:new Date().toISOString(),updatedBy:me};
+   if(s==="done"){upd.progress=100;upd.doneAt=upd.updatedAt}else if(t.status==="done"&&(t.progress||0)>=100)upd.progress=90;
+-  try{await db.collection("tasks").doc(t._id).update(upd)}catch(e){APP.toast(err(e));render()}
++  try{await db.collection("tasks").doc(t._id).update(upd);if(s==="done"&&t.status!=="done"){confetti();APP.toast("Nice work! Task done 🎉")}}catch(e){APP.toast(err(e));render()}
++}
++async function setProgress(t,v){
++  if(!t||!canEditTask(t))return;
++  const upd={progress:v,updatedAt:new Date().toISOString(),updatedBy:me};
++  if(t.status==="todo"&&v>0)upd.status="doing";
++  try{await db.collection("tasks").doc(t._id).update(upd);APP.toast(`Progress saved: ${v}%`)}catch(e){APP.toast(err(e));render()}
++}
++function confetti(){
++  if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;
++  const c=document.createElement("canvas");c.id="confetti";document.body.appendChild(c);
++  const x=c.getContext("2d"),W=c.width=innerWidth,H=c.height=innerHeight;
++  const cols=["#8482a7","#5f5c8c","#1baf7a","#eda100","#e87ba4","#2a78d6"];
++  const bits=Array.from({length:120},()=>({x:W/2+(Math.random()-.5)*120,y:H*.35,vx:(Math.random()-.5)*14,vy:-Math.random()*12-4,r:Math.random()*6+4,a:Math.random()*3,va:(Math.random()-.5)*.3,c:cols[Math.floor(Math.random()*cols.length)]}));
++  let f=0;(function tick(){x.clearRect(0,0,W,H);bits.forEach(b=>{b.vy+=.35;b.x+=b.vx;b.y+=b.vy;b.a+=b.va;x.save();x.translate(b.x,b.y);x.rotate(b.a);x.fillStyle=b.c;x.fillRect(-b.r/2,-b.r/4,b.r,b.r/2);x.restore()});
++    if(++f<140)requestAnimationFrame(tick);else c.remove()})();
+ }
+ 
+ // ---------- drawers ----------
+@@ -273,6 +527,29 @@ function drawer(title,body,foot){
+ const fld=(id,label,inner,cls)=>`<label class="ap-field ${cls||""}"><span>${label}</span>${inner}</label>`;
+ const inp=(id,v,type)=>`<input id="${id}" type="${type||"text"}" value="${esc(v??"")}">`;
+ const selO=(id,opts,v)=>`<select id="${id}">${opts.map(o=>{const [val,l]=Array.isArray(o)?o:[o,o];return `<option value="${esc(val)}"${val===v?" selected":""}>${esc(l)}</option>`}).join("")}</select>`;
++function taskRow(t){
++  return `<tr class="click" data-task="${t._id}"><td><b>${esc(t.title)}</b></td>
++    <td class="nowrap">${canEditTask(t)?`<select class="sel-inline" data-st="${t._id}" aria-label="Status">${TASK_ST.map(([v,l])=>`<option value="${v}"${t.status===v?" selected":""}>${l}</option>`).join("")}</select>`:stPill(t.status)}</td>
++    <td class="nowrap">${due(t)}</td><td style="min-width:110px">${prog(t.progress||0)}</td><td>${who(t.assignee)}</td></tr>`;
++}
++
++function openPerson(e){
++  const s=stats(e),w=load(s.open.length);
++  const open=[...s.open].sort(sortTasks),done=[...s.done].sort((a,b)=>String(b.doneAt||"").localeCompare(String(a.doneAt||""))).slice(0,10);
++  const tbl=ts=>`<div class="tw"><table><thead><tr><th>Task</th><th>Status</th><th>Due</th><th>Progress</th><th>Project</th></tr></thead><tbody>${ts.map(t=>{const p=projOf(t.projectId);
++    return `<tr class="click" data-task="${t._id}"><td><b>${esc(t.title)}</b></td><td>${stPill(t.status)}</td><td class="nowrap">${due(t)}</td><td style="min-width:110px">${prog(t.progress||0)}</td><td>${p?esc(p.name):""}</td></tr>`}).join("")}</tbody></table></div>`;
++  const close=drawer(esc(nameOf(e)),`
++    <div style="display:flex;gap:14px;align-items:center">${av(e,"lg")}<div><b style="font-size:16px">${esc(nameOf(e))}</b><div class="hint">${esc(e)}</div><span class="load" style="--c:${w.c}"><i></i>${w.l} · ${plural(s.open.length,"open task")}</span></div></div>
++    <div class="kpis" style="margin:0"><div class="card kpi"><div class="l">Average progress</div><div class="v">${s.avg}%</div></div><div class="card kpi"><div class="l">Open</div><div class="v">${s.open.length}</div></div>
++      <div class="card kpi"><div class="l">Done this week</div><div class="v">${s.week.length}</div></div><div class="card kpi"><div class="l">Late</div><div class="v ${s.late.length?"late":""}">${s.late.length}</div></div></div>
++    <fieldset><legend>Current tasks (${open.length})</legend>${open.length?tbl(open):'<p class="hint" style="margin:0">No open tasks.</p>'}</fieldset>
++    ${done.length?`<fieldset><legend>Recently finished</legend>${tbl(done)}</fieldset>`:""}
++    <fieldset><legend>Latest updates</legend>${feed(10,e)}</fieldset>`,
++    (FULL?`<button class="ap-btn ap-primary" id="pp-assign">+ Assign a task</button>`:"")+`<button class="ap-btn" id="pp-close">Close</button>`);
++  $("#pp-close").onclick=close;
++  $("#drawer-root").querySelectorAll("[data-task]").forEach(r=>r.addEventListener("click",()=>{close();openTask(r.dataset.task)}));
++  if($("#pp-assign"))$("#pp-assign").onclick=()=>{const ok=P.filter(p=>!finished(p));if(!ok.length){APP.toast("Create a project first.");return}close();openTask(null,null,e)};
++}
+ 
+ function openProject(id){
+   const p=id?projOf(id):null;if(id&&!p)return;
+@@ -292,10 +569,11 @@ function openProject(id){
+         <p class="hint" style="margin:8px 0 0">Team members see this project and its tasks. People with Limited access only see projects they're on.</p></fieldset>
+       ${fld("p-desc","Notes",`<textarea id="p-desc">${esc(m.description||"")}</textarea>`,"wide")}
+       ${!p&&SET.steps.length?`<label class="chk wide" style="padding:0"><input type="checkbox" id="p-steps" checked> Add the standard tasks (${SET.steps.length}): ${esc(SET.steps.join(", "))}</label>`:""}</div>`;
+-  const tasksHtml=p?`<fieldset><legend>Tasks (${ts.length})</legend>${ts.length?`<div class="tw"><table><thead><tr><th>Task</th><th>Status</th><th>Due</th><th>Priority</th><th>Progress</th><th>Assigned to</th></tr></thead><tbody>${ts.map(t=>taskRow(t,"who")).join("")}</tbody></table></div>`:'<p class="hint" style="margin:0">No tasks yet.</p>'}
++  const summary=p&&ts.length?`<div>${prog(avg(ts.map(t=>t.progress||0)),null,pColor(p))}<p class="hint" style="margin:4px 0 0">${ts.filter(t=>t.status==="done").length} of ${ts.length} tasks done${ts.filter(isLate).length?` · <span class="late">${ts.filter(isLate).length} late</span>`:""}</p></div>`:"";
++  const tasksHtml=p?`<fieldset><legend>Tasks (${ts.length})</legend>${ts.length?`<div class="tw"><table><thead><tr><th>Task</th><th>Status</th><th>Due</th><th>Progress</th><th>Assigned to</th></tr></thead><tbody>${ts.map(taskRow).join("")}</tbody></table></div>`:'<p class="hint" style="margin:0">No tasks yet.</p>'}
+       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">${canAddTo(p)?'<button class="ap-btn ap-small" id="p-addtask">+ Add task</button>':""}${FULL&&SET.steps.length?'<button class="ap-btn ap-small" id="p-addsteps">+ Add standard tasks</button>':""}
+       </div></fieldset>`:"";
+-  const close=drawer(p?esc(p.name):"New project",info+tasksHtml+'<p class="err" id="perr" role="alert" style="color:var(--crit);margin:0"></p>',
++  const close=drawer(p?esc(p.name):"New project",summary+info+tasksHtml+'<p class="err" id="perr" role="alert" style="color:var(--crit);margin:0"></p>',
+     (FULL?`<button class="ap-btn ap-primary" id="p-save">${p?"Save changes":"Create project"}</button>`:"")+`<button class="ap-btn" id="p-close">${FULL?"Cancel":"Close"}</button>`+(FULL&&p?'<span class="spacer"></span><button class="ap-btn ap-danger" id="p-del">Delete project</button>':""));
+   $("#p-close").onclick=close;
+   $("#drawer-root").querySelectorAll("[data-task]").forEach(r=>r.addEventListener("click",e=>{if(!e.target.closest("select")){close();openTask(r.dataset.task)}}));
+@@ -345,28 +623,29 @@ async function addSteps(pid,assignee,team){
+       createdAt:now,createdBy:me,updatedAt:now,assignedAt:now,assignedBy:me});
+ }
+ 
+-function openTask(id,projectId){
++function openTask(id,projectId,assignTo){
+   const t=id?T.find(x=>x._id===id):null;if(id&&!t)return;
+   const pid=t?t.projectId:projectId;
+   const choices=P.filter(p=>canAddTo(p)&&(!finished(p)||p._id===pid));
+-  const m=t?{...t}:{projectId:pid||(choices[0]||{})._id,status:"todo",priority:"Normal",progress:0,assignee:me};
++  const m=t?{...t}:{projectId:pid||(choices[0]||{})._id,status:"todo",priority:"Normal",progress:0,assignee:(FULL&&assignTo)||me};
+   const edit=t?canEditTask(t):true;
+   const p0=projOf(m.projectId);
+   const assignOpts=pp=>{const team=(pp&&pp.team)||[];const list=FULL?[...new Set([...team,...PEOPLE.map(x=>x.email)])]:[me];return list.map(e=>[e,nameOf(e)+(FULL&&!team.includes(e)?" (adds to team)":"")])};
+   const body=(edit?`<div class="fg">
+-      ${fld("t-title","Task",inp("t-title",m.title),"wide")}
++      ${fld("t-title","What needs to be done?",inp("t-title",m.title),"wide")}
+       ${t?fld("","Project",`<span class="ro">${esc(p0?p0.name:"—")}</span>`):fld("t-proj","Project",selO("t-proj",choices.map(p=>[p._id,p.name]),m.projectId))}
+-      ${fld("t-who","Assigned to",selO("t-who",assignOpts(p0),m.assignee))}
++      ${fld("t-who","Who is doing it?",selO("t-who",assignOpts(p0),m.assignee))}
+       ${fld("t-due","Due date",inp("t-due",m.dueDate,"date"))}${fld("t-pr","Priority",selO("t-pr",PRIOS,m.priority||"Normal"))}
+       ${fld("t-st","Status",selO("t-st",TASK_ST,m.status))}
+-      ${fld("t-prog",`Progress <b id="t-progv">${m.progress||0}%</b>`,`<input id="t-prog" type="range" min="0" max="100" step="10" value="${m.progress||0}">`)}
+-      ${fld("t-desc","Details",`<textarea id="t-desc">${esc(m.description||"")}</textarea>`,"wide")}</div>`
++      <div class="ap-field"><span>Progress <b id="t-progv">${m.progress||0}%</b></span><input id="t-prog" type="range" min="0" max="100" step="5" value="${m.progress||0}" aria-label="Progress">
++        <div class="quick">${[0,25,50,75,100].map(n=>`<button type="button" data-q="${n}">${n}%</button>`).join("")}</div></div>
++      ${fld("t-desc","Details (optional)",`<textarea id="t-desc">${esc(m.description||"")}</textarea>`,"wide")}</div>`
+     :`<div class="fg">${fld("","Project",`<span class="ro">${esc(p0?p0.name:"—")}</span>`)}${fld("","Assigned to",`<span class="ro">${who(m.assignee)}</span>`)}
+-      ${fld("","Status",`<span class="ro"><span class="pill ${m.status}">${TST[m.status]}</span></span>`)}${fld("","Due date",`<span class="ro">${due(m)}</span>`)}
++      ${fld("","Status",`<span class="ro">${stPill(m.status)}</span>`)}${fld("","Due date",`<span class="ro">${due(m)}</span>`)}
+       ${fld("","Progress",`<span class="ro">${prog(m.progress||0)}</span>`)}${m.description?fld("","Details",`<span class="ro" style="font-weight:400;white-space:pre-wrap">${esc(m.description)}</span>`,"wide"):""}</div>
+       <p class="hint" style="margin:0">Only ${esc(nameOf(m.assignee))} or a project lead can change this task. You can comment below.</p>`)
+-    +(t?`<fieldset><legend>Comments (${(t.comments||[]).length})</legend><div class="cmts">${(t.comments||[]).map(c=>`<div class="cmt">${av(c.by)}<div><small><b>${esc(c.name||nameOf(c.by))}</b> · ${esc(new Date(c.at).toLocaleString("en-CA",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}))}</small><p>${esc(c.text)}</p></div></div>`).join("")||'<p class="hint" style="margin:0">No comments yet.</p>'}</div>
+-      <div style="display:flex;gap:8px;margin-top:10px;align-items:flex-end"><label class="ap-field" style="flex:1"><span>Add a comment or update</span><textarea id="t-cmt" style="min-height:54px"></textarea></label><button class="ap-btn" id="t-post">Post</button></div></fieldset>`:"")
++    +(t?`<fieldset><legend>Comments and updates (${(t.comments||[]).length})</legend><div class="cmts">${(t.comments||[]).map(c=>`<div class="cmt">${av(c.by)}<div><small><b>${esc(c.name||nameOf(c.by))}</b> · ${esc(new Date(c.at).toLocaleString("en-CA",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}))}</small><p>${esc(c.text)}</p></div></div>`).join("")||'<p class="hint" style="margin:0">No comments yet.</p>'}</div>
++      <div style="display:flex;gap:8px;margin-top:10px;align-items:flex-end"><label class="ap-field" style="flex:1"><span>Add a comment or update</span><textarea id="t-cmt" style="min-height:54px" placeholder="What did you get done? Anything blocking you?"></textarea></label><button class="ap-btn" id="t-post">Post</button></div></fieldset>`:"")
+     +'<p id="terr" role="alert" style="color:var(--crit);margin:0"></p>';
+   const close=drawer(t?esc(t.title):"New task",body,
+     (edit?`<button class="ap-btn ap-primary" id="t-save">${t?"Save changes":"Add task"}</button>`:"")+`<button class="ap-btn" id="t-close">${edit?"Cancel":"Close"}</button>`
+@@ -374,7 +653,9 @@ function openTask(id,projectId){
+   $("#t-close").onclick=close;
+   if($("#t-proj-open"))$("#t-proj-open").onclick=()=>{close();openProject(p0._id)};
+   if($("#t-proj"))$("#t-proj").onchange=()=>{const pp=projOf($("#t-proj").value);const cur=$("#t-who").value;$("#t-who").innerHTML=assignOpts(pp).map(([v,l])=>`<option value="${esc(v)}"${v===cur?" selected":""}>${esc(l)}</option>`).join("")};
+-  if($("#t-prog"))$("#t-prog").oninput=e=>{$("#t-progv").textContent=e.target.value+"%"};
++  const setP=v=>{$("#t-prog").value=v;$("#t-progv").textContent=v+"%";const st=$("#t-st");if(+v===100&&st.value!=="done")st.value="review";else if(+v>0&&st.value==="todo")st.value="doing"};
++  if($("#t-prog"))$("#t-prog").oninput=e=>setP(e.target.value);
++  $("#drawer-root").querySelectorAll("[data-q]").forEach(b=>b.onclick=()=>setP(b.dataset.q));
+   if($("#t-st"))$("#t-st").onchange=e=>{if(e.target.value==="done"){$("#t-prog").value=100;$("#t-progv").textContent="100%"}};
+   if($("#t-post"))$("#t-post").onclick=async()=>{
+     const text=$("#t-cmt").value.trim();if(!text)return;
+@@ -388,7 +669,8 @@ function openTask(id,projectId){
+     const now=new Date().toISOString();
+     const data={title,assignee,dueDate:$("#t-due").value,priority:$("#t-pr").value,status:$("#t-st").value,progress:+$("#t-prog").value,
+       description:$("#t-desc").value.trim(),updatedAt:now,updatedBy:me};
+-    if(data.status==="done"){data.progress=100;if(!t||t.status!=="done")data.doneAt=now}
++    const newlyDone=data.status==="done"&&(!t||t.status!=="done");
++    if(data.status==="done"){data.progress=100;if(newlyDone)data.doneAt=now}
+     if(!t||t.assignee!==assignee){data.assignedAt=now;data.assignedBy=me}
+     const btn=$("#t-save");btn.disabled=true;
+     try{
+@@ -400,7 +682,7 @@ function openTask(id,projectId){
+       data.team=team;
+       if(t)await db.collection("tasks").doc(t._id).update(data);
+       else await db.collection("tasks").doc().set(Object.assign(data,{projectId:pp._id,order:tasksOf(pp._id).length,comments:[],createdAt:now,createdBy:me}));
+-      APP.toast(t?"Task saved":"Task added");close();
++      APP.toast(t?"Task saved":"Task added");close();if(newlyDone)confetti();
+     }catch(e){btn.disabled=false;$("#terr").textContent=err(e)}
+   };
+   if(FULL&&t){let armed=false;$("#t-del").onclick=async()=>{if(!armed){armed=true;$("#t-del").textContent="Click again to delete";return}
+@@ -409,17 +691,25 @@ function openTask(id,projectId){
+ }
+ 
+ // ---------- data ----------
++// redraw when data changes, but not while someone is typing, sliding or dragging on the page
++let pending=false;
++function refresh(){
++  const a=document.activeElement;
++  if(dragging||(a&&a.closest&&a.closest("#page")&&/INPUT|TEXTAREA|SELECT/.test(a.tagName))){pending=true;return}
++  pending=false;render();
++}
++document.addEventListener("focusout",()=>setTimeout(()=>{if(pending)refresh()},60));
+ db.collection("members").onSnapshot(snap=>{
+   const all=snap.docs.map(d=>Object.assign({},d.data(),{email:d.id}));
+   all.forEach(x=>{NAMES[x.email]=x.name||x.email});
+   PEOPLE=all.filter(x=>x.active===true&&(x.role==="admin"||["limited","full"].includes((x.access||{}).projects)))
+     .map(x=>({email:x.email,name:x.name||x.email})).sort((a,b)=>a.name.localeCompare(b.name));
+-  render();
++  refresh();
+ },()=>{});
+-db.doc("settings/projects").onSnapshot(s=>{const d=s.exists?s.data():{};SET={statuses:d.statuses&&d.statuses.length?d.statuses:DEF.statuses,steps:Array.isArray(d.steps)?d.steps:DEF.steps};render()},()=>{});
+-(FULL?db.collection("projects"):db.collection("projects").where("team","array-contains",me)).onSnapshot(snap=>{P=snap.docs.map(d=>Object.assign({},d.data(),{_id:d.id}));loadedP=true;render();handleParams()},
++db.doc("settings/projects").onSnapshot(s=>{const d=s.exists?s.data():{};SET={statuses:d.statuses&&d.statuses.length?d.statuses:DEF.statuses,steps:Array.isArray(d.steps)?d.steps:DEF.steps};refresh()},()=>{});
++(FULL?db.collection("projects"):db.collection("projects").where("team","array-contains",me)).onSnapshot(snap=>{P=snap.docs.map(d=>Object.assign({},d.data(),{_id:d.id}));loadedP=true;refresh();handleParams()},
+   ()=>{loadedP=true;APP.toast("Couldn't load projects. Reload the page.");render()});
+-(FULL?db.collection("tasks"):db.collection("tasks").where("team","array-contains",me)).onSnapshot(snap=>{T=snap.docs.map(d=>Object.assign({},d.data(),{_id:d.id}));loadedT=true;render()},
++(FULL?db.collection("tasks"):db.collection("tasks").where("team","array-contains",me)).onSnapshot(snap=>{T=snap.docs.map(d=>Object.assign({},d.data(),{_id:d.id}));loadedT=true;refresh()},
+   ()=>{loadedT=true;render()});
+ $("#page").hidden=false;render();
+ });
+-- 
+2.43.0
+
