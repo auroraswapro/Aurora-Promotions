@@ -4,6 +4,6 @@
  * (Supabase dashboard -> Project Settings -> API). The anon key is designed to be
  * public; the database's security rules protect your data. */
 window.AURORA_CONFIG = {
-  supabaseUrl: '',
-  supabaseKey: '',
+  supabaseUrl: 'https://imcfcpkwmnfbmeqsumhq.supabase.co',
+  supabaseKey: 'sb_publishable_WHtT3Vf8JXRU_h23HeiM5g_qYhUf7lr',
 };
