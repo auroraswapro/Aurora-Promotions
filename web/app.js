@@ -29,7 +29,7 @@
   ];
   const PROJECT_STATUS = Object.fromEntries(PROJECT_STATUSES.map((s) => [s.key, s]));
   const SWATCHES = ['#6d4aff', '#0ea5a4', '#e0569b', '#f08c2e', '#2f7de1', '#16a34a', '#9b5de5', '#d9480f', '#0f766e', '#be123c'];
-  const LOGO_URL = 'logo.svg';
+  const LOGO_URL = 'logo.png';
 
   const ICON = {
     dashboard: '<path d="M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z"/>',
@@ -613,15 +613,12 @@
       <aside class="sidebar" aria-label="Main navigation">
         <div class="brand">
           <img src="${LOGO_URL}" alt="">
-          <div><div class="brand-name">Aurora</div><div class="brand-sub">Promotions</div></div>
+          <div><div class="brand-name">Aurora Promotions</div><div class="brand-sub">Team Tracker</div></div>
         </div>
         <nav class="nav">
-          <div class="nav-label">Overview</div>
           ${link('dashboard', 'Dashboard', 'dashboard')}
           ${readOnly() ? '' : link('my', 'My Tasks', 'my', myOpen)}
-          <div class="nav-label">Work</div>
           ${link('board', 'Task Board', 'board')}
-          ${link('tasks', 'All Tasks', 'list')}
           ${link('projects', 'Projects', 'folder')}
           ${link('team', 'Team', 'team')}
         </nav>
@@ -657,10 +654,10 @@
     <div class="login-page">
       <section class="login-art">
         <div class="brand" style="padding:0">
-          <img src="${LOGO_URL}" alt="" style="width:46px;height:46px">
           <div><div class="brand-name" style="font-size:18px">Aurora Promotions</div><div class="brand-sub">Team Tracker</div></div>
         </div>
         <div>
+          <img class="big-logo" src="${LOGO_URL}" alt="Aurora Promotions logo">
           <h1>See your whole team's progress in one place.</h1>
           <p>Plan campaigns, assign tasks and follow every team member's progress live.</p>
           <ul>
@@ -858,7 +855,7 @@
 
     return `
     <section class="hero">
-      <div class="small" style="color:#bdb6ff">${esc(dateLine)}</div>
+      <div class="small hero-date">${esc(dateLine)}</div>
       <h2>${greeting()}${u && !readOnly() ? `, ${esc(u.name.split(' ')[0])}` : ''} ✨</h2>
       <p>${readOnly() ? '' : mineOpen.length
         ? `You have <b>${plural(mineOpen.length, 'open task')}</b>${mineDueSoon.length ? `, <b>${mineDueSoon.length}</b> due within 2 days` : ''}. `
@@ -873,27 +870,17 @@
 
     ${onboarding()}
 
-    <div class="kpis">
-      ${kpi('Active projects', activeProjects.length, `${state.projects.length} total`, 'var(--brand)', '', '#/projects')}
+    <div class="kpis four">
       ${kpi('Open tasks', open.length, `${tasks.length} total`, 'var(--st-todo)', '', '#/tasks')}
       ${kpi('In progress', inProgress.length, blocked.length ? `${blocked.length} blocked` : 'Nothing blocked', 'var(--st-progress)', blocked.length ? 'bad' : 'good', '#/board')}
       ${kpi('Overdue', overdue.length, overdue.length ? 'Needs attention' : 'All on schedule', 'var(--st-blocked)', overdue.length ? 'bad' : 'good')}
-      ${kpi('Completed · 7 days', doneWeek.length, 'Tasks finished', 'var(--st-done)')}
-      ${kpi('Avg. progress', `${teamAvg}%`, 'Across open tasks', 'var(--teal)')}
+      ${kpi('Done this week', doneWeek.length, `Team average progress ${teamAvg}%`, 'var(--st-done)')}
     </div>
 
     <div class="dash-grid">
       <section class="card span-7">
         <div class="card-head"><h3>Team progress</h3><span class="sub">Average progress on each member's open tasks</span><div class="spacer"></div><a class="small" href="#" data-go="#/team">View team →</a></div>
         <div class="card-body">${teamProgressList()}</div>
-      </section>
-      <section class="card span-5">
-        <div class="card-head"><h3>Tasks by status</h3><span class="sub">${plural(tasks.length, 'task')}</span></div>
-        <div class="card-body">${statusBreakdown(tasks)}</div>
-      </section>
-      <section class="card span-7">
-        <div class="card-head"><h3>Tasks completed</h3><span class="sub">Last 14 days</span></div>
-        <div class="card-body">${completedChart(14)}</div>
       </section>
       <section class="card span-5">
         <div class="card-head"><h3>Deadlines</h3><span class="sub">Overdue & next 7 days</span></div>
@@ -904,8 +891,12 @@
         <div class="card-body">${projectProgressList()}</div>
       </section>
       <section class="card span-5">
-        <div class="card-head"><h3>Recent activity</h3></div>
-        <div class="card-body">${feedView(state.activity.slice(0, 12))}</div>
+        <div class="card-head"><h3>Tasks by status</h3><span class="sub">${plural(tasks.length, 'task')}</span></div>
+        <div class="card-body">${statusBreakdown(tasks)}</div>
+      </section>
+      <section class="card span-12">
+        <div class="card-head"><h3>Latest updates from the team</h3></div>
+        <div class="card-body">${feedView(state.activity.slice(0, 10))}</div>
       </section>
     </div>`;
   }
@@ -946,55 +937,6 @@
       <div class="legend">${counts
         .map((c) => `<div class="legend-row" style="--c:${c.color}"><i></i><span>${c.label}</span><b>${c.n}</b><span class="pct">${Math.round((c.n / total) * 100)}%</span></div>`)
         .join('')}</div>`;
-  }
-
-  function completedChart(days) {
-    const buckets = [];
-    for (let i = days - 1; i >= 0; i--) {
-      const d = new Date();
-      d.setHours(0, 0, 0, 0);
-      d.setDate(d.getDate() - i);
-      buckets.push({ d, key: dayKey(d), n: 0 });
-    }
-    const idx = Object.fromEntries(buckets.map((b, i) => [b.key, i]));
-    state.tasks.forEach((t) => {
-      if (!t.completedAt) return;
-      const c = new Date(t.completedAt);
-      if (isNaN(c)) return;
-      const k = dayKey(c);
-      if (k in idx) buckets[idx[k]].n++;
-    });
-    const total = buckets.reduce((a, b) => a + b.n, 0);
-    const max = Math.max(4, ...buckets.map((b) => b.n));
-    const step = max <= 4 ? 1 : Math.ceil(max / 4);
-    const top = step * Math.ceil(max / step);
-    const W = 640, H = 250, L = 28, R = 8, T = 10, B = 26;
-    const pw = W - L - R, ph = H - T - B;
-    const bw = pw / days;
-    let grid = '';
-    for (let v = 0; v <= top; v += step) {
-      const y = T + ph - (v / top) * ph;
-      grid += `<line class="${v === 0 ? 'axis' : 'grid'}" x1="${L}" x2="${W - R}" y1="${y}" y2="${y}"/><text x="${L - 6}" y="${y + 4}" text-anchor="end">${v}</text>`;
-    }
-    const bars = buckets
-      .map((b, i) => {
-        const h = (b.n / top) * ph;
-        const x = L + i * bw;
-        const w = Math.max(4, Math.min(28, bw - 6));
-        const bx = x + (bw - w) / 2;
-        const y = T + ph - h;
-        const label = i % 2 === (days - 1) % 2 ? `<text x="${x + bw / 2}" y="${H - 8}" text-anchor="middle">${b.d.getDate()} ${MONTHS[b.d.getMonth()]}</text>` : '';
-        const r = Math.min(4, h / 2);
-        const path = h > 0
-          ? `<path class="bar" d="M${bx},${y + h} V${y + r} Q${bx},${y} ${bx + r},${y} H${bx + w - r} Q${bx + w},${y} ${bx + w},${y + r} V${y + h} Z"/>`
-          : '';
-        const tipText = `<b>${b.d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</b><br>${plural(b.n, 'task')} completed`;
-        return `<g data-tip="${esc(tipText)}"><rect class="hit" x="${x}" y="${T}" width="${bw}" height="${ph}"/>${path}</g>${label}`;
-      })
-      .join('');
-    return `
-      <div class="row between" style="margin-bottom:4px"><div><span style="font-size:24px;font-weight:700;font-family:var(--display)">${total}</span> <span class="muted">completed in ${days} days</span></div></div>
-      <svg class="colchart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${total} tasks completed in the last ${days} days">${grid}${bars}</svg>`;
   }
 
   function deadlineList() {
@@ -1109,7 +1051,8 @@
         </div>
         <div class="actions">
           <select class="input" id="st-${id}" data-status="${id}" aria-label="Status">${STATUSES.map((s) => `<option value="${s.key}" ${s.key === t.status ? 'selected' : ''}>${s.label}</option>`).join('')}</select>
-          <button class="btn sm" data-task="${id}">Update</button>
+          ${t.status !== 'done' ? `<button class="btn sm primary" data-action="mark-done" data-id="${id}" title="Mark as done">✓ Done</button>` : ''}
+          <button class="btn sm" data-task="${id}">Add note</button>
         </div>
       </div>`;
   }
@@ -1516,23 +1459,28 @@
         <div class="${existing ? 'task-layout' : ''}">
           <div class="stack" ${existing ? '' : 'style="padding:20px 22px"'}>
             ${!editable ? `<div class="badge" style="align-self:flex-start;white-space:normal">${canComment ? 'View only: you can comment, but only the assignee or a manager can edit.' : 'View only.'}</div>` : ''}
-            <div class="field"><label for="t-title">Title</label><input class="input" id="t-title" name="title" value="${esc(t.title)}" placeholder="e.g. Design Instagram story set" required maxlength="200" ${dis}></div>
-            <div class="field"><label for="t-desc">Description</label><textarea class="input" id="t-desc" name="description" placeholder="Details, links, requirements…" maxlength="8000" ${dis}>${esc(t.description)}</textarea></div>
+            <div class="field"><label for="t-title">What needs to be done?</label><input class="input" id="t-title" name="title" value="${esc(t.title)}" placeholder="e.g. Design Instagram story set" required maxlength="200" ${dis}></div>
+            <div class="field"><label for="t-desc">Details (optional)</label><textarea class="input" id="t-desc" name="description" placeholder="Details, links, requirements…" maxlength="8000" ${dis}>${esc(t.description)}</textarea></div>
             <div class="grid-2">
               <div class="field"><label for="t-project">Project</label><select class="input" id="t-project" name="projectId" ${dis}>
                 ${state.projects.map((p) => `<option value="${esc(p.id)}" ${p.id === t.projectId ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
               </select></div>
-              <div class="field"><label for="t-assignee">Assignee</label><select class="input" id="t-assignee" name="assigneeId" ${editable && admin ? '' : 'disabled'}>
+              <div class="field"><label for="t-assignee">Who is doing it?</label><select class="input" id="t-assignee" name="assigneeId" ${editable && admin ? '' : 'disabled'}>
                 <option value="">Unassigned</option>
                 ${activeUsers().map((u) => `<option value="${esc(u.id)}" ${u.id === t.assigneeId ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}
               </select></div>
               <div class="field"><label for="t-priority">Priority</label><select class="input" id="t-priority" name="priority" ${dis}>
                 ${PRIORITIES.map((p) => `<option value="${p.key}" ${p.key === t.priority ? 'selected' : ''}>${p.label}</option>`).join('')}
               </select></div>
-              <div class="field"><label for="t-est">Estimate (hours)</label><input class="input" id="t-est" type="number" min="0" max="1000" step="0.5" name="estimateHours" value="${t.estimateHours ?? ''}" ${dis}></div>
-              <div class="field"><label for="t-start">Start date</label><input class="input" id="t-start" type="date" name="startDate" value="${t.startDate || ''}" ${dis}></div>
               <div class="field"><label for="t-due">Due date</label><input class="input" id="t-due" type="date" name="dueDate" value="${t.dueDate || ''}" ${dis}></div>
             </div>
+            <details class="more-opts">
+              <summary>More options (start date, time estimate)</summary>
+              <div class="grid-2" style="margin-top:12px">
+                <div class="field"><label for="t-start">Start date</label><input class="input" id="t-start" type="date" name="startDate" value="${t.startDate || ''}" ${dis}></div>
+                <div class="field"><label for="t-est">Time estimate (hours)</label><input class="input" id="t-est" type="number" min="0" max="1000" step="0.5" name="estimateHours" value="${t.estimateHours ?? ''}" ${dis}></div>
+              </div>
+            </details>
             <div class="field"><label>Status</label>
               <div class="status-pills">${STATUSES.map((s) => `<button type="button" class="${s.key === t.status ? 'on' : ''}" style="--c:${s.color}" data-st="${s.key}" ${dis}><i></i>${s.label}</button>`).join('')}</div>
               <input type="hidden" name="status" value="${t.status}">
@@ -1884,6 +1832,7 @@
         });
       }
       else if (a === 'new-project') openProjectModal();
+      else if (a === 'mark-done') { act.disabled = true; await save(() => saveTask(act.dataset.id, { status: 'done' }), 'Nice work! Task marked as done 🎉'); }
       else if (a === 'edit-project') openProjectModal(act.dataset.id);
       else if (a === 'edit-member') openMemberModal(act.dataset.id);
       else if (a === 'new-member') openInviteModal();
