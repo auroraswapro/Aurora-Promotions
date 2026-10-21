@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Promo Pricing Calculator</title>
+<link rel="icon" href="../favicon.png">
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #ffffff; --text: #1d2330; --muted: #677085;
+    --border: #dde1e8; --accent: #1f6feb; --accent-soft: #e8f0fe; --good: #137a3f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151b; --card: #1b2029; --text: #e6e9ef; --muted: #98a1b3;
+      --border: #2d3442; --accent: #5b9bff; --accent-soft: #1f2c44; --good: #4cc77f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .grid { display: grid; grid-template-columns: 360px 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+  .card h2 { font-size: 1rem; margin: 0 0 12px; }
+  .group-label { font-size: .75rem; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--muted); margin: 16px 0 8px; font-weight: 600; }
+  .group-label:first-of-type { margin-top: 0; }
+  label { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; }
+  label span { flex: 1; }
+  .field { position: relative; width: 140px; }
+  .field i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    color: var(--muted); font-style: normal; pointer-events: none; }
+  input { width: 100%; padding: 8px 10px 8px 22px; border: 1px solid var(--border); border-radius: 6px;
+    background: var(--bg); color: var(--text); font: inherit; text-align: right; }
+  input.noprefix { padding-left: 10px; }
+  input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .btn { margin-top: 8px; width: 100%; padding: 9px; border: 1px solid var(--border); border-radius: 6px;
+    background: transparent; color: var(--text); font: inherit; cursor: pointer; }
+  .btn:hover { background: var(--accent-soft); }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  @media (max-width: 600px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
+  .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .kpi .k { color: var(--muted); font-size: .8rem; }
+  .kpi .v { font-size: 1.35rem; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .kpi.main { border-color: var(--accent); background: var(--accent-soft); }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .tab { padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border); background: transparent;
+    color: var(--text); cursor: pointer; font: inherit; }
+  .tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .table-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { padding: 9px 10px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  thead th { color: var(--muted); font-weight: 600; font-size: .85rem; }
+  th.sel, td.sel { background: var(--accent-soft); }
+  tr.strong td { font-weight: 700; }
+  tr.sep td { border-top: 2px solid var(--border); }
+  .breakdown td { color: var(--muted); }
+  .note { color: var(--muted); font-size: .85rem; margin-top: 12px; }
+  .good { color: var(--good); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Promo Pricing Calculator</h1>
+  <p class="sub">Works out the selling price from your costs and margin. Shipping goes on after the margin, so you don't earn margin on it.</p>
+
+  <div class="grid">
+    <!-- Inputs -->
+    <div class="card">
+      <h2>Order inputs</h2>
+
+      <div class="group-label">Quantity</div>
+      <label><span>Quantity ordered</span>
+        <div class="field"><input id="qty" class="noprefix" type="number" min="1" step="1" value="100"></div></label>
+
+      <div class="group-label">Per-unit costs</div>
+      <label><span>Unit net cost</span>
+        <div class="field"><i>$</i><input id="unitNet" type="number" min="0" step="0.01" value="0"></div></label>
+      <label><span>Run charge / unit</span>
+        <div class="field"><i>$</i><input id="runCharge" type="number" min="0" step="0.01" value="0"></div></label>
+      <label><span>Other costs / unit</span>
+        <div class="field"><i>$</i><input id="otherUnit" type="number" min="0" step="0.01" value="0"></div></label>
+
+      <div class="group-label">Fixed costs (whole order)</div>
+      <label><span>Setup cost</span>
+        <div class="field"><i>$</i><input id="setup" type="number" min="0" step="0.01" value="0"></div></label>
+      <label><span>Other fixed costs</span>
+        <div class="field"><i>$</i><input id="otherFixed" type="number" min="0" step="0.01" value="0"></div></label>
+
+      <div class="group-label">Shipping (whole order, no margin)</div>
+      <label><span>Shipping cost</span>
+        <div class="field"><i>$</i><input id="shipping" type="number" min="0" step="0.01" value="0"></div></label>
+
+      <button class="btn" id="reset" type="button">Clear all</button>
+    </div>
+
+    <!-- Results -->
+    <div>
+      <div class="kpis">
+        <div class="kpi main"><div class="k">Final unit price (incl. shipping)</div><div class="v" id="kUnit">$0.00</div></div>
+        <div class="kpi"><div class="k">Total price (incl. shipping)</div><div class="v" id="kTotal">$0.00</div></div>
+        <div class="kpi"><div class="k">Margin</div><div class="v" id="kMargin">40%</div></div>
+        <div class="kpi"><div class="k">Margin amount (total)</div><div class="v good" id="kMarginAmt">$0.00</div></div>
+      </div>
+
+      <div class="card">
+        <h2>Compare margins</h2>
+        <div class="tabs" id="tabs"></div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr id="headRow"></tr></thead>
+            <tbody id="body"></tbody>
+          </table>
+        </div>
+        <p class="note">
+          Unit price before shipping = cost per unit ÷ (1 − margin). At 40% that's cost ÷ 0.6.<br>
+          Cost per unit = unit net + run charge + other per-unit costs + (setup + other fixed) ÷ quantity.<br>
+          Shipping is split across units and added after the margin.
+        </p>
+      </div>
+
+      <div class="card" style="margin-top:20px">
+        <h2>Cost breakdown</h2>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th></th><th>Per unit</th><th>Total</th></tr></thead>
+            <tbody id="costBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const MARGINS = [0.40, 0.35, 0.30, 0.25];
+  let selected = 0.40;
+  const ids = ["qty", "unitNet", "runCharge", "otherUnit", "setup", "otherFixed", "shipping"];
+  const $ = id => document.getElementById(id);
+  const money = n => (isFinite(n) ? n : 0).toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const money4 = n => (isFinite(n) ? n : 0).toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 4 });
+  const num = id => Math.max(0, parseFloat($(id).value) || 0);
+  const pct = m => Math.round(m * 100) + "%";
+
+  function calc(m) {
+    const qty = Math.max(1, Math.floor(num("qty")) || 1);
+    const perUnitVar = num("unitNet") + num("runCharge") + num("otherUnit");
+    const fixed = num("setup") + num("otherFixed");
+    const shipping = num("shipping");
+    const costPerUnit = perUnitVar + fixed / qty;       // excludes shipping
+    const pricePerUnit = costPerUnit / (1 - m);          // margin applied here
+    const marginPerUnit = pricePerUnit - costPerUnit;
+    const shipPerUnit = shipping / qty;
+    return {
+      qty, costPerUnit, totalCost: costPerUnit * qty,
+      pricePerUnit, priceTotal: pricePerUnit * qty,
+      marginPerUnit, marginTotal: marginPerUnit * qty,
+      shipping, shipPerUnit,
+      finalUnit: pricePerUnit + shipPerUnit,
+      finalTotal: pricePerUnit * qty + shipping,
+    };
+  }
+
+  function render() {
+    const results = MARGINS.map(m => ({ m, r: calc(m) }));
+    const cur = calc(selected);
+
+    $("kUnit").textContent = money4(cur.finalUnit);
+    $("kTotal").textContent = money(cur.finalTotal);
+    $("kMargin").textContent = pct(selected);
+    $("kMarginAmt").textContent = money(cur.marginTotal);
+
+    $("tabs").innerHTML = MARGINS.map(m =>
+      `<button class="tab ${m === selected ? "active" : ""}" data-m="${m}">${pct(m)} margin</button>`).join("");
+
+    $("headRow").innerHTML = "<th>Margin</th>" + results.map(({ m }) =>
+      `<th class="${m === selected ? "sel" : ""}">${pct(m)}${m === 0.40 ? " (standard)" : ""}</th>`).join("");
+
+    const rows = [
+      ["Cost per unit (excl. shipping)", r => money4(r.costPerUnit)],
+      ["Unit price before shipping", r => money4(r.pricePerUnit)],
+      ["Margin amount / unit", r => money4(r.marginPerUnit)],
+      ["Shipping / unit", r => money4(r.shipPerUnit)],
+      ["Final unit price", r => money4(r.finalUnit), "strong sep"],
+      ["Total cost (excl. shipping)", r => money(r.totalCost), "sep"],
+      ["Total price before shipping", r => money(r.priceTotal)],
+      ["Margin amount (total)", r => money(r.marginTotal)],
+      ["Shipping", r => money(r.shipping)],
+      ["Total price", r => money(r.finalTotal), "strong sep"],
+    ];
+    $("body").innerHTML = rows.map(([label, f, cls]) =>
+      `<tr class="${cls || ""}"><td>${label}</td>` + results.map(({ m, r }) =>
+        `<td class="${m === selected ? "sel" : ""}">${f(r)}</td>`).join("") + "</tr>").join("");
+
+    const q = cur.qty;
+    const line = (label, unit, total, cls) =>
+      `<tr class="${cls || ""}"><td>${label}</td><td>${money4(unit)}</td><td>${money(total)}</td></tr>`;
+    $("costBody").innerHTML =
+      line("Unit net cost", num("unitNet"), num("unitNet") * q) +
+      line("Run charge", num("runCharge"), num("runCharge") * q) +
+      line("Other per-unit costs", num("otherUnit"), num("otherUnit") * q) +
+      line("Setup cost", num("setup") / q, num("setup")) +
+      line("Other fixed costs", num("otherFixed") / q, num("otherFixed")) +
+      line("Total cost (excl. shipping)", cur.costPerUnit, cur.totalCost, "strong sep") +
+      line("Shipping (no margin)", cur.shipPerUnit, cur.shipping);
+  }
+
+  ids.forEach(id => $(id).addEventListener("input", render));
+  $("tabs").addEventListener("click", e => {
+    const b = e.target.closest(".tab");
+    if (b) { selected = parseFloat(b.dataset.m); render(); }
+  });
+  $("reset").addEventListener("click", () => {
+    ids.forEach(id => $(id).value = id === "qty" ? 100 : 0);
+    selected = 0.40; render();
+  });
+  render();
+</script>
+</body>
+</html>
