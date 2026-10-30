@@ -1,0 +1,15 @@
+{
+  "name": "Aurora Quotes",
+  "short_name": "Quotes",
+  "description": "Build custom apparel print quotes and download them as PDFs.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#eef1f6",
+  "theme_color": "#1f3a6e",
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}

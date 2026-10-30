@@ -1,0 +1,864 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Aurora Quotes</title>
+<meta name="theme-color" content="#1f3a6e">
+<meta name="robots" content="noindex">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Aurora Quotes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap">
+<style>
+/* Layout: sticky bar; list view = one column of quote rows; editor = form column + sticky live paper preview */
+:root{
+  --bg:#eef1f6; --surface:#ffffff; --surface-2:#f6f8fb; --ink:#16213a; --muted:#5b6680; --line:#d8deea;
+  --accent:#1f3a6e; --accent-hover:#294a88; --accent-ink:#ffffff; --accent-soft:#e3e9f5;
+  --danger:#b42318; --danger-soft:#fdecea; --ok:#1d7a46; --focus:#3d6fd6;
+  --font:"Archivo",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --r:10px;
+  /* paper is always printed on white */
+  --p-ink:#1d2433; --p-muted:#6b7385; --p-navy:#1f3864; --p-line:#d9dee8; --p-tint:#f4f6fa; --p-red:#c0261d; --p-red-bg:#fdeceb;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e131d; --surface:#161d2b; --surface-2:#1b2333; --ink:#e5eaf4; --muted:#9aa5bd; --line:#2a3448;
+  --accent:#5b82d6; --accent-hover:#7096e6; --accent-ink:#0b1120; --accent-soft:#22304b;
+  --danger:#ff8a7e; --danger-soft:#3a1f22; --ok:#5fd394; --focus:#8fb0ff; color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#0e131d; --surface:#161d2b; --surface-2:#1b2333; --ink:#e5eaf4; --muted:#9aa5bd; --line:#2a3448;
+  --accent:#5b82d6; --accent-hover:#7096e6; --accent-ink:#0b1120; --accent-soft:#22304b;
+  --danger:#ff8a7e; --danger-soft:#3a1f22; --ok:#5fd394; --focus:#8fb0ff; color-scheme:dark;}
+*{box-sizing:border-box}
+html,body{margin:0}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
+img{max-width:100%}
+html,body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.wrap{max-width:1440px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* top bar */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;background:var(--surface);border-bottom:1px solid var(--line)}
+.bar .wrap{display:flex;align-items:center;gap:12px;min-height:56px;flex-wrap:wrap;padding-block:8px}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto;min-width:0;background:none;border:0;padding:0;cursor:pointer;text-align:left}
+.brand img{height:28px;width:auto;max-width:120px;object-fit:contain}
+.brand-mark{width:30px;height:30px;border-radius:7px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:800;font-stretch:120%;font-size:13px;flex:none}
+.brand-name{font-weight:700;font-stretch:115%;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand-sub{font-size:12px;color:var(--muted);display:block;font-weight:500;font-stretch:100%}
+.nav{display:flex;gap:6px;flex-wrap:wrap}
+
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 12px;cursor:pointer;font-weight:600;font-size:13px;line-height:1.2;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{background:var(--accent-hover)}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.ghost:hover{background:var(--surface-2)}
+.btn.danger{color:var(--danger)}
+.btn.danger.solid{background:var(--danger);border-color:var(--danger);color:var(--surface)}
+.btn.sm{padding:4px 8px;font-size:12px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.icon-btn{border:1px solid transparent;background:transparent;border-radius:6px;width:28px;height:28px;display:inline-grid;place-items:center;cursor:pointer;color:var(--muted);font-size:15px;line-height:1}
+.icon-btn:hover{background:var(--surface-2);color:var(--ink);border-color:var(--line)}
+.icon-btn.danger:hover{color:var(--danger)}
+
+.banner{margin-top:14px;padding:10px 14px;border-radius:8px;background:var(--accent-soft);font-size:13px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.banner.warn{background:var(--danger-soft);color:var(--danger)}
+
+/* list view */
+.list-head{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;padding-block:24px 14px}
+.list-head h1{margin:0;font-size:26px;font-stretch:118%;font-weight:750;letter-spacing:-.01em;margin-right:auto}
+.search{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 12px;min-width:0;width:260px;max-width:100%}
+.qlist{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-bottom:40px}
+.qrow{display:grid;grid-template-columns:90px minmax(0,1.6fr) 110px 110px 120px auto;gap:12px;align-items:center;padding:12px 16px;border-top:1px solid var(--line);cursor:pointer}
+.qrow:first-child{border-top:0}
+.qrow:hover{background:var(--surface-2)}
+.qrow.head{cursor:default;background:var(--surface-2);font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:650;padding-block:9px}
+.qnum{font-variant-numeric:tabular-nums;color:var(--muted);font-weight:600}
+.qcust{font-weight:650;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qcust small{display:block;font-weight:400;color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis}
+.qmoney{font-variant-numeric:tabular-nums;text-align:right;font-weight:650}
+.qdate{color:var(--muted);font-size:13px}
+.qacts{display:flex;gap:4px;justify-content:flex-end}
+.pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11.5px;font-weight:650;letter-spacing:.02em;background:var(--surface-2);border:1px solid var(--line);color:var(--muted)}
+.pill.sent{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.pill.approved{background:color-mix(in srgb,var(--ok) 15%,transparent);color:var(--ok);border-color:transparent}
+.pill.lost{background:var(--danger-soft);color:var(--danger);border-color:transparent}
+.empty{padding:48px 24px;text-align:center;color:var(--muted)}
+.empty h2{color:var(--ink);font-stretch:112%;margin:0 0 6px;font-size:18px}
+.empty p{margin:0 auto 16px;max-width:46ch;line-height:1.5}
+
+/* editor */
+.ed-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-block:14px}
+.ed-title{font-size:20px;font-weight:750;font-stretch:115%;margin:0 auto 0 0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ed-title small{color:var(--muted);font-weight:600;font-stretch:100%;font-size:14px;margin-right:6px}
+.save-state{font-size:12px;color:var(--muted);min-width:70px}
+.save-state.err{color:var(--danger)}
+.ed-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,560px);gap:20px;align-items:start;padding-bottom:48px}
+.ed-form{display:flex;flex-direction:column;gap:16px;min-width:0}
+.ed-preview{position:sticky;top:calc(env(safe-area-inset-top,0px) + 68px);min-width:0}
+.ed-preview .pv-label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:650;margin-bottom:8px;display:flex;justify-content:space-between}
+.pv-scroll{max-height:calc(100vh - 120px);overflow:auto;border-radius:6px;box-shadow:0 1px 2px rgba(15,25,45,.08),0 8px 28px rgba(15,25,45,.12)}
+.pv-wrap{position:relative;overflow:hidden;background:#fff}
+.pv-wrap>.paper{transform-origin:0 0;position:absolute;left:0;top:0}
+@media (max-width:1080px){.ed-grid{grid-template-columns:minmax(0,1fr)}.ed-preview{position:static}.pv-scroll{max-height:none}}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;min-width:0}
+.card-h{display:flex;align-items:center;gap:8px;margin:0 0 12px}
+.card-h h2{margin:0;font-size:13px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;color:var(--muted);margin-right:auto}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field label,.lbl{font-size:12px;font-weight:600;color:var(--muted)}
+.hint{font-size:12px;color:var(--muted);line-height:1.4}
+.inp{border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:7px 10px;min-width:0;width:100%}
+.inp:hover{border-color:color-mix(in srgb,var(--muted) 60%,var(--line))}
+textarea.inp{resize:vertical;min-height:64px;line-height:1.45}
+.inp[type=number]{font-variant-numeric:tabular-nums}
+.prefix{position:relative}
+.prefix>span{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none;font-size:13px}
+.prefix>.inp{padding-left:20px}
+.suffix{position:relative}.suffix>span{position:absolute;right:9px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none;font-size:13px}.suffix>.inp{padding-right:24px}
+.split{display:flex;gap:6px}.split>select{width:auto;flex:none}
+
+/* item card */
+.item{border-left:4px solid var(--accent)}
+.item-top{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:start}
+.item-name{font-size:18px;font-weight:700;font-stretch:110%;border-color:transparent;background:transparent;padding:4px 8px;margin-left:-8px}
+.item-name:hover,.item-name:focus{border-color:var(--line);background:var(--surface)}
+.item-tools{display:flex;gap:2px}
+.item-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-top:8px}
+@media (max-width:640px){.item-body{grid-template-columns:minmax(0,1fr)}}
+.prices{margin-top:14px;display:grid;grid-template-columns:repeat(5,minmax(70px,1fr));gap:8px}
+@media (max-width:520px){.prices{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.prices .field label{white-space:nowrap}
+.sect-label{display:flex;align-items:baseline;gap:8px;margin:16px 0 8px}
+.sect-label b{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.cgrid-scroll{overflow-x:auto;margin-inline:-4px;padding-inline:4px}
+.cgrid{border-collapse:separate;border-spacing:0;width:100%;min-width:720px}
+.cgrid th{font-size:11px;font-weight:650;color:var(--muted);text-align:center;padding:0 2px 6px;letter-spacing:.03em}
+.cgrid th.l{text-align:left}
+.cgrid td{padding:3px 2px;vertical-align:middle}
+.cgrid td.cname{width:150px}
+.cgrid .qty{width:100%;min-width:42px;text-align:center;padding:7px 2px}
+.cgrid .qty.big{background:var(--surface-2)}
+.cgrid .tot{text-align:right;font-variant-numeric:tabular-nums;font-weight:650;padding-right:8px;white-space:nowrap}
+.cgrid tr.na .cname .inp{color:var(--danger);text-decoration:line-through}
+.na-toggle{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--muted);cursor:pointer;white-space:nowrap;padding:4px 6px;border-radius:6px;border:1px solid transparent}
+.na-toggle input{accent-color:var(--danger);margin:0}
+tr.na .na-toggle{color:var(--danger);background:var(--danger-soft)}
+.na-row td{padding:0 2px 8px}
+.na-box{display:flex;gap:8px;align-items:center;background:var(--danger-soft);border-radius:7px;padding:6px 10px;color:var(--danger);font-size:12.5px;flex-wrap:wrap}
+.na-box .inp{flex:1;min-width:180px;color:var(--ink)}
+.item-foot{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}
+.item-foot .sum{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--muted)}
+.item-foot .sum b{color:var(--ink)}
+.add-item{border:2px dashed var(--line);background:transparent;border-radius:var(--r);padding:16px;font-weight:650;cursor:pointer;color:var(--muted)}
+.add-item:hover{border-color:var(--accent);color:var(--accent)}
+.sumline{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums;padding:3px 0}
+.sumline.big{font-weight:750;font-size:16px;border-top:1px solid var(--line);margin-top:6px;padding-top:8px}
+
+/* settings */
+.set-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;padding-bottom:40px}
+@media (max-width:760px){.set-grid{grid-template-columns:minmax(0,1fr)}}
+.logo-box{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.logo-prev{width:160px;height:72px;border:1px dashed var(--line);border-radius:8px;display:grid;place-items:center;background:#fff;color:#8a93a6;font-size:12px;overflow:hidden}
+.logo-prev img{max-width:150px;max-height:62px;object-fit:contain}
+
+.auth{max-width:400px;margin:8vh auto 40px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:28px 24px;display:flex;flex-direction:column;gap:14px}
+.auth h1{margin:0;font-size:24px;font-stretch:118%;font-weight:750}
+.auth p{margin:0;color:var(--muted);line-height:1.5}
+.auth .btn{justify-content:center;padding:10px 14px;font-size:14px}
+.auth .err{color:var(--danger);font-size:13px;min-height:1em}
+.auth .linkish{background:none;border:0;color:var(--accent);cursor:pointer;padding:0;font-weight:600;font-size:13px;align-self:flex-start}
+.code-inp{font-size:22px;letter-spacing:.35em;text-align:center;font-variant-numeric:tabular-nums}
+.who{font-size:12px;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;align-self:center}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:.2s;z-index:20;max-width:calc(100% - 32px)}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media (prefers-reduced-motion:reduce){#toast{transition:none}}
+fieldset.ro{border:0;margin:0;padding:0;min-width:0;display:contents}
+
+/* ===== The printed quote (always light) ===== */
+.paper{width:816px;min-height:1056px;background:#fff;color:var(--p-ink);padding:48px;font-family:var(--font);font-size:11px;line-height:1.35;font-variant-numeric:tabular-nums}
+.paper.print{min-height:0;padding:0 48px}
+.p-head{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;padding-bottom:10px;border-bottom:2.5px solid var(--p-navy)}
+.p-brand{display:flex;flex-direction:column;gap:8px}
+.p-co{display:flex;align-items:center;gap:12px}
+.p-co img{max-height:52px;max-width:220px;object-fit:contain}
+.p-co span{font-size:15px;font-weight:700;color:var(--p-navy);font-stretch:108%}
+.p-title{margin:0;font-size:22px;font-weight:750;color:var(--p-navy);font-stretch:105%;letter-spacing:-.005em}
+.p-for{font-size:12px;color:var(--p-ink)}
+.p-meta{text-align:right;font-size:11px;line-height:1.55;white-space:nowrap}
+.p-meta b{font-weight:700}
+.p-warn{margin-top:14px;border:1.5px solid var(--p-red);background:var(--p-red-bg);border-radius:4px;padding:8px 10px;color:var(--p-red);font-size:10.5px;line-height:1.5}
+.p-warn .t{font-weight:750}
+.p-warn b{font-weight:750}
+.p-table{width:100%;border-collapse:collapse;margin-top:14px;table-layout:fixed}
+.p-table th{background:var(--p-navy);color:#fff;text-align:left;font-weight:700;font-size:10.5px;padding:7px 6px}
+.p-table th.n,.p-table td.n{text-align:right}
+.p-table td{padding:5px 6px;vertical-align:top;border-bottom:1px solid #edf0f5}
+.p-icell{background:var(--p-tint);border-bottom:0!important}
+.p-iname{font-weight:750;font-size:11.5px}
+.p-blank{color:var(--p-muted);font-size:9.5px;margin-top:1px}
+.p-print{margin-top:8px;font-size:9.5px}
+.p-print b{font-weight:700}
+.p-print ul{margin:2px 0 0;padding:0;list-style:none}
+.p-print li::before{content:"• "}
+.p-larger{color:var(--p-muted);font-size:9.5px}
+tr.p-na td:not(.p-icell){background:var(--p-red-bg)}
+.p-strike{text-decoration:line-through}
+.p-badge{display:inline-block;white-space:nowrap;background:var(--p-red);color:#fff;font-weight:750;font-size:8.5px;padding:1px 3px;border-radius:2px;margin-top:2px;letter-spacing:.01em}
+.p-sugg{color:var(--p-red);font-weight:700;font-size:9px;margin-top:1px}
+tr.p-sub td{color:var(--p-muted);font-size:10px;border-bottom:1.5px solid #c9d1e0;background:var(--p-tint)}
+.p-totals{display:flex;flex-direction:column;align-items:flex-end;gap:8px;margin-top:16px}
+.p-breakdown{min-width:260px;font-size:11px}
+.p-breakdown div{display:flex;justify-content:space-between;gap:24px;padding:2px 0}
+.p-breakdown .neg{color:var(--p-ink)}
+.p-totbox{background:var(--p-navy);color:#fff;border-radius:5px;padding:10px 16px;min-width:200px}
+.p-totbox .pcs{font-size:10px;opacity:.85}
+.p-totbox .amt{font-size:16px;font-weight:750;letter-spacing:.01em}
+.p-dep{min-width:260px;font-size:11px;border:1px solid var(--p-line);border-radius:4px;padding:6px 10px}
+.p-dep div{display:flex;justify-content:space-between;gap:24px;padding:2px 0}
+.p-dep div:first-child{font-weight:700}
+.p-notes{margin-top:16px;border:1px solid #c9d4ea;background:#f5f7fc;border-radius:4px;padding:10px 12px}
+.p-notes h3{margin:0 0 6px;font-size:12px;color:var(--p-navy)}
+.p-notes ul{margin:0;padding-left:12px;line-height:1.6}
+.p-closing{text-align:center;color:var(--p-navy);font-weight:700;font-size:12px;margin:16px 0 0;padding-bottom:4px}
+.p-empty{padding:40px;text-align:center;color:var(--p-muted);border:1px dashed var(--p-line);margin-top:14px;border-radius:4px}
+#stage{position:absolute;left:-14000px;top:0;width:816px;pointer-events:none}
+</style>
+</head>
+<body>
+
+<header class="bar"><div class="wrap">
+  <button class="brand" data-act="home" id="brandBtn" aria-label="All quotes"></button>
+  <nav class="nav" id="nav"></nav>
+</div></header>
+<main class="wrap" id="view"><p class="hint" style="padding:24px 0">Loading the quote builder…</p></main>
+<div id="stage" aria-hidden="true"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="../config.js"></script>
+<script src="../vendor/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+(function(){
+"use strict";
+/* ---------- constants ---------- */
+const SIZES=[["XS","XS",0],["S","Small",0],["M","Medium",0],["L","Large",0],["XL","XL",0],["XXL","XXL",1],["3XL","3XL",1],["4XL","4XL",1],["5XL","5XL",1]].map(([k,label,big])=>({k,label,big:!!big}));
+const BIG=SIZES.filter(s=>s.big);
+const SIZE_BY=Object.fromEntries(SIZES.map(s=>[s.k,s]));
+const STATUSES=[["draft","Draft"],["sent","Sent"],["approved","Approved"],["lost","Lost"]];
+const DEFAULT_NOTES=["The price includes the clothing and all the printing listed for each item.","Small to XL are one price. XXL and up are larger sizes, so they cost a little more.","Shipping is not included in this total. We will send you the shipping cost separately.","Before we print, we will send you a picture of the design to approve."].join("\n");
+const DEFAULT_CLOSING="Happy with this quote? Just reply to the email and say “Approved.”";
+const DEFAULT_SETTINGS={companyName:"Aurora Promotions",logo:"../logo.png",validDays:30,taxRate:0,nextNumber:1001,notes:DEFAULT_NOTES,closing:DEFAULT_CLOSING};
+const LS_KEY="aqb-local-v1";
+
+const S={sb:null,email:"",uid:"",isAdmin:false,mode:"loading",readOnly:false,quotes:[],loaded:false,loadErr:"",
+  settings:{...DEFAULT_SETTINGS},view:"list",quote:null,pending:false,saving:false,saveState:"",saveErr:false,
+  remoteNewer:false,lastSavedAt:0,search:"",confirm:null,sess:Math.random().toString(36).slice(2,10)};
+
+/* ---------- helpers ---------- */
+const $=(s,r=document)=>r.querySelector(s);
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid=p=>(p||"")+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const num=v=>{const n=parseFloat(v);return isFinite(n)?n:0};
+const r2=n=>Math.round((n+Number.EPSILON)*100)/100;
+const fmt=new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"});
+const money=n=>fmt.format(r2(n||0));
+const pad=n=>String(n).padStart(2,"0");
+const todayISO=()=>{const d=new Date();return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())};
+const parseISO=s=>{const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s||"");return m?new Date(+m[1],+m[2]-1,+m[3]):new Date()};
+const fmtDate=d=>d.toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"});
+const goodUntil=q=>{const d=parseISO(q.date);d.setDate(d.getDate()+Math.max(0,Math.round(num(q.validDays))));return d};
+const lines=t=>String(t||"").split(/\n/).map(s=>s.trim()).filter(Boolean);
+const clone=o=>JSON.parse(JSON.stringify(o));
+function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove("show"),2800)}
+function joinOr(list,wrap){const w=list.map(wrap);if(w.length<2)return w.join("");return w.slice(0,-1).join(", ")+" or "+w[w.length-1]}
+const suggList=s=>String(s||"").split(/,|\/|\bor\b/i).map(x=>x.trim()).filter(Boolean);
+
+/* ---------- model ---------- */
+function newColor(name){return {id:uid("c"),name:name||"",unavailable:false,suggest:"",q:{}}}
+function newItem(){return {id:uid("i"),name:"",blank:"",printing:"",base:null,prices:{},colors:[newColor()]}}
+function newQuote(number){return {id:uid("q"),number:String(number),customer:"",date:todayISO(),validDays:num(S.settings.validDays)||30,status:"draft",
+  items:[newItem()],discount:{type:"pct",value:0},taxRate:num(S.settings.taxRate),deposit:{type:"pct",value:0},
+  notes:S.settings.notes||DEFAULT_NOTES,closing:S.settings.closing||DEFAULT_CLOSING,createdAt:Date.now(),updatedAt:Date.now()}}
+function priceFor(item,k){
+  const base=num(item.base);
+  if(!SIZE_BY[k].big)return base;
+  let p=base;
+  for(const s of BIG){const v=item.prices&&item.prices[s.k];if(v!==null&&v!==undefined&&v!==""&&isFinite(+v))p=+v;if(s.k===k)return p}
+  return p;
+}
+function colorRows(item,c){
+  const groups=[];
+  for(const s of SIZES){const n=Math.max(0,Math.round(num(c.q&&c.q[s.k])));if(!n)continue;
+    const p=priceFor(item,s.k);let g=groups.find(g=>g.price===p);
+    if(!g){g={price:p,parts:[],big:true,qty:0};groups.push(g)}
+    g.parts.push(n+" "+s.label);g.qty+=n;if(!s.big)g.big=false}
+  return groups.map(g=>({sizes:g.parts.join(", "),larger:g.big?(g.parts.length>1?"larger sizes":"larger size"):"",qty:g.qty,price:g.price,total:r2(g.qty*g.price)}));
+}
+function calc(q){
+  const out={items:[],pieces:0,sub:0,na:[]};
+  q.items.forEach((it,ii)=>{
+    const rows=[];let qty=0,total=0;
+    it.colors.forEach((c,ci)=>{
+      const cr=colorRows(it,c);
+      const cq=cr.reduce((a,r)=>a+r.qty,0);
+      c._qty=cq;c._total=r2(cr.reduce((a,r)=>a+r.total,0));
+      cr.forEach(r=>rows.push({...r,color:c.name||"(color)",unavailable:!!c.unavailable,suggest:c.suggest}));
+      if(c.unavailable&&cq>0)out.na.push({item:it.name||"Item",color:c.name||"(color)",suggest:c.suggest});
+      qty+=cq;total+=c._total});
+    out.items.push({it,rows,qty,total:r2(total),idx:ii});
+    out.pieces+=qty;out.sub+=total});
+  out.sub=r2(out.sub);
+  const d=q.discount||{},dep=q.deposit||{};
+  out.disc=r2(d.type==="amt"?Math.min(num(d.value),out.sub):out.sub*num(d.value)/100);
+  out.taxable=r2(out.sub-out.disc);
+  out.tax=r2(out.taxable*num(q.taxRate)/100);
+  out.total=r2(out.taxable+out.tax);
+  out.dep=r2(dep.type==="amt"?Math.min(num(dep.value),out.total):out.total*num(dep.value)/100);
+  out.bal=r2(out.total-out.dep);
+  return out;
+}
+
+/* ---------- the printed quote ---------- */
+function paperHTML(q,set,print){
+  const c=calc(q);
+  const co=(set.logo?`<img src="${esc(set.logo)}" alt="">`:"")+(set.companyName?`<span>${esc(set.companyName)}</span>`:"");
+  let h=`<div class="paper${print?" print":""}">`;
+  h+=`<div class="p-head brk"><div class="p-brand">${co?`<div class="p-co">${co}</div>`:""}<h1 class="p-title">Apparel Quote</h1>${q.customer?`<div class="p-for">Prepared for: <b>${esc(q.customer)}</b></div>`:""}</div>
+  <div class="p-meta">${q.number?`<div><b>Quote #:</b> ${esc(q.number)}</div>`:""}<div><b>Date:</b> ${fmtDate(parseISO(q.date))}</div><div><b>Good until:</b> ${fmtDate(goodUntil(q))}</div></div></div>`;
+  if(c.na.length){
+    const n=c.na.length;
+    h+=`<div class="p-warn brk"><div class="t">⚠ Please note: ${n} ${n>1?"colors are":"color is"} not available.</div>`;
+    c.na.forEach(x=>{const sl=suggList(x.suggest);
+      h+=`<div>• ${esc(x.item)} in <b>${esc(x.color)}</b> – not available. ${sl.length?`Please choose ${joinOr(sl,s=>"<b>"+esc(s)+"</b>")}.`:"Please choose another color."}</div>`});
+    h+=`<div>These are marked in red below. The price stays the same when you pick a new color.</div></div>`;
+  }
+  const items=c.items.filter(x=>x.rows.length);
+  if(!items.length){h+=`<div class="p-empty brk">Add an item, a color and some sizes to see them here.</div>`}
+  else{
+    h+=`<table class="p-table"><colgroup><col style="width:23%"><col style="width:23%"><col style="width:28%"><col style="width:6%"><col style="width:10%"><col style="width:10%"></colgroup>
+    <thead><tr><th>Item</th><th>Color</th><th>Sizes</th><th class="n">Qty</th><th class="n">Price Each</th><th class="n">Total</th></tr></thead>`;
+    items.forEach(x=>{
+      const it=x.it,pr=lines(it.printing);
+      h+=`<tbody class="p-item">`;
+      x.rows.forEach((r,ri)=>{
+        h+=`<tr class="${r.unavailable?"p-na":""}">`;
+        if(ri===0)h+=`<td class="p-icell" rowspan="${x.rows.length}"><div class="p-iteminfo"><div class="p-iname">${esc(it.name||"Item")}</div>${it.blank?`<div class="p-blank">${esc(it.blank)}</div>`:""}${pr.length?`<div class="p-print"><b>Printing:</b><ul>${pr.map(p=>`<li>${esc(p)}</li>`).join("")}</ul></div>`:""}</div></td>`;
+        const sl=suggList(r.suggest);
+        h+=`<td>${r.unavailable?`<div class="p-strike">${esc(r.color)}</div><div class="p-badge">THIS COLOR IS NOT AVAILABLE</div><div class="p-sugg">${sl.length?"Please choose: "+esc(joinOr(sl,s=>s)):"Please choose another color"}</div>`:esc(r.color)}</td>
+        <td>${esc(r.sizes)}${r.larger?` <span class="p-larger">(${r.larger})</span>`:""}</td><td class="n">${r.qty}</td><td class="n">${money(r.price)}</td><td class="n">${money(r.total)}</td></tr>`;
+      });
+      h+=`<tr class="p-sub"><td colspan="3" class="n">${esc(it.name||"Item")} total</td><td class="n">${x.qty}</td><td></td><td class="n">${money(x.total)}</td></tr></tbody>`;
+    });
+    h+=`</table>`;
+  }
+  const extras=c.disc>0||c.tax>0;
+  h+=`<div class="p-totals brk">`;
+  if(extras){
+    const d=q.discount||{};
+    h+=`<div class="p-breakdown"><div><span>Subtotal</span><span>${money(c.sub)}</span></div>`;
+    if(c.disc>0)h+=`<div class="neg"><span>Discount${d.type!=="amt"?" ("+num(d.value)+"%)":""}</span><span>−${money(c.disc)}</span></div>`;
+    if(c.tax>0)h+=`<div><span>Tax (${num(q.taxRate)}%)</span><span>${money(c.tax)}</span></div>`;
+    h+=`</div>`;
+  }
+  h+=`<div class="p-totbox"><div class="pcs">${c.pieces} piece${c.pieces===1?"":"s"}</div><div class="amt">TOTAL: ${money(c.total)}</div></div>`;
+  if(c.dep>0){const dp=q.deposit||{};h+=`<div class="p-dep"><div><span>Deposit due to start${dp.type!=="amt"?" ("+num(dp.value)+"%)":""}</span><span>${money(c.dep)}</span></div><div><span>Balance due</span><span>${money(c.bal)}</span></div></div>`}
+  h+=`</div>`;
+  const nl=lines(q.notes);
+  if(nl.length)h+=`<div class="p-notes brk"><h3>Good to know</h3><ul>${nl.map(n=>`<li>${esc(n)}</li>`).join("")}</ul></div>`;
+  if(String(q.closing||"").trim())h+=`<p class="p-closing brk">${esc(q.closing)}</p>`;
+  return h+`</div>`;
+}
+
+/* ---------- storage ---------- */
+function lsRead(){try{return JSON.parse(localStorage.getItem(LS_KEY))||{quotes:{},settings:null}}catch(e){return {quotes:{},settings:null}}}
+function lsWrite(d){try{localStorage.setItem(LS_KEY,JSON.stringify(d))}catch(e){}}
+function strip(q){const o=clone(q);(o.items||[]).forEach(it=>it.colors.forEach(c=>{delete c._qty;delete c._total}));return o}
+async function storeQuote(q){
+  const c=calc(q);
+  const doc={...strip(q),summary:{pieces:c.pieces,total:c.total,items:q.items.map(i=>i.name).filter(Boolean).join(", ")},_sess:S.sess};
+  if(S.mode==="cloud"){const {error}=await S.sb.from("quotes").upsert({id:q.id,data:doc,updated_at:doc.updatedAt});if(error)throw error;upsertLocal(doc)}
+  else{const d=lsRead();d.quotes[q.id]=doc;lsWrite(d);localQuotes()}
+}
+async function removeQuote(id){
+  if(S.mode==="cloud"){const {error}=await S.sb.from("quotes").delete().eq("id",id);if(error)throw error;S.quotes=S.quotes.filter(x=>x.id!==id)}
+  else{const d=lsRead();delete d.quotes[id];lsWrite(d);localQuotes()}
+}
+async function storeSettings(s){
+  if(S.mode==="cloud"){const {error}=await S.sb.from("quote_settings").upsert({id:"company",data:s});if(error)throw error;S.settings={...DEFAULT_SETTINGS,...s};render()}
+  else{const d=lsRead();d.settings=s;lsWrite(d);S.settings={...DEFAULT_SETTINGS,...s};render()}
+}
+function upsertLocal(doc){const i=S.quotes.findIndex(x=>x.id===doc.id);if(i>=0&&doc._by===undefined)doc._by=S.quotes[i]._by;if(i<0&&doc._by===undefined)doc._by=S.uid;if(i>=0)S.quotes[i]=doc;else S.quotes.unshift(doc);S.quotes.sort((a,b)=>num(b.updatedAt)-num(a.updatedAt))}
+function localQuotes(){const d=lsRead();S.quotes=Object.values(d.quotes).sort((a,b)=>b.updatedAt-a.updatedAt);S.loaded=true;if(S.view==="list")render()}
+
+/* ---------- saving ---------- */
+let saveTimer=null;
+function markDirty(){
+  if(!S.quote||S.readOnly)return;
+  S.pending=true;S.saveState="Unsaved changes";S.saveErr=false;paintSave();
+  clearTimeout(saveTimer);saveTimer=setTimeout(flush,700);
+}
+async function flush(){
+  if(!S.quote||!S.pending)return;
+  if(S.saving){clearTimeout(saveTimer);saveTimer=setTimeout(flush,400);return}
+  S.saving=true;S.pending=false;S.saveState="Saving…";paintSave();
+  S.quote.updatedAt=Date.now();S.lastSavedAt=S.quote.updatedAt;
+  try{await storeQuote(S.quote);S.saveState=S.pending?"Unsaved changes":"Saved";S.saveErr=false}
+  catch(e){S.pending=true;S.saveErr=true;
+    const denied=e&&(e.code==="42501"||e.status===401||e.status===403);
+    S.saveState=denied?"Signed out. Sign in again to save.":"Couldn't save. Retrying…";
+    if(!denied){clearTimeout(saveTimer);saveTimer=setTimeout(flush,4000)}}
+  S.saving=false;paintSave();
+}
+function paintSave(){const el=$("#saveState");if(el){el.textContent=S.readOnly?"View only":S.saveState;el.classList.toggle("err",S.saveErr)}}
+
+/* ---------- navigation ---------- */
+async function openQuote(id){
+  await flush();
+  const q=S.quotes.find(x=>x.id===id);if(!q)return;
+  S.quote=clone(q);delete S.quote.summary;delete S.quote._sess;
+  S.view="edit";S.remoteNewer=false;S.saveState="Saved";S.saveErr=false;S.confirm=null;render();window.scrollTo(0,0);
+}
+async function nextNumber(){
+  if(S.mode==="cloud"){const {data,error}=await S.sb.rpc("next_quote_number");if(!error&&data)return data}
+  const n=Math.max(1,Math.round(num(S.settings.nextNumber))||1001);
+  if(S.mode!=="cloud")storeSettings({...S.settings,nextNumber:n+1}).catch(()=>{});
+  return n;
+}
+async function createQuote(){
+  if(S.readOnly)return;
+  await flush();
+  const n=await nextNumber();
+  S.quote=newQuote(n);S.view="edit";S.remoteNewer=false;S.confirm=null;
+  S.pending=true;render();flush();window.scrollTo(0,0);
+  setTimeout(()=>{const el=$('[data-b="customer"]');el&&el.focus()},50);
+}
+async function duplicateQuote(src){
+  if(S.readOnly)return;
+  await flush();
+  const n=await nextNumber();
+  const q=clone(src);delete q.summary;delete q._sess;
+  Object.assign(q,{id:uid("q"),number:String(n),customer:(q.customer?q.customer+" (copy)":""),status:"draft",date:todayISO(),createdAt:Date.now(),updatedAt:Date.now()});
+  q.items.forEach(it=>{it.id=uid("i");it.colors.forEach(c=>c.id=uid("c"))});
+  S.quote=q;S.view="edit";S.pending=true;render();flush();window.scrollTo(0,0);toast("Copied to quote #"+n);
+}
+async function goHome(){await flush();S.view="list";S.quote=null;S.confirm=null;render();window.scrollTo(0,0)}
+
+/* ---------- render: chrome ---------- */
+function renderChrome(){
+  const s=S.settings;
+  $("#brandBtn").innerHTML=(s.logo?`<img src="${esc(s.logo)}" alt="">`:`<span class="brand-mark" aria-hidden="true">AQ</span>`)+
+    `<span style="min-width:0"><span class="brand-name">${esc(s.companyName||"Apparel Quote Builder")}</span><span class="brand-sub">Apparel quotes</span></span>`;
+  $("#nav").innerHTML=`<button class="btn ghost" data-act="home">All quotes</button>`+
+    `<a class="btn ghost" href="../">Team tracker</a>`+(S.mode!=="cloud"||S.isAdmin?`<button class="btn ghost" data-act="settings">Settings</button>`:"")+`<button class="btn primary" data-act="new">+ New quote</button>`+
+    (S.mode==="cloud"&&S.email?`<span class="who" title="${esc(S.email)}">${esc(S.email)}</span><button class="btn ghost sm" data-act="signout">Sign out</button>`:"");
+  $("#nav").hidden=(S.view==="login"||S.view==="reset"||S.mode==="loading");
+}
+function render(){
+  renderChrome();
+  if(S.view==="login")renderLogin();
+  else if(S.view==="edit"&&S.quote)renderEditor();
+  else if(S.view==="settings")renderSettings();
+  else renderList();
+}
+function modeBanner(){
+  if(S.mode==="local")return `<div class="banner warn">Demo mode: quotes are saved in this browser only, because the database connection in config.js is empty.</div>`;
+  if(S.loadErr)return `<div class="banner warn">${esc(S.loadErr)}</div>`;
+  if(S.readOnly)return `<div class="banner">You have view-only access. You can open quotes and download PDFs, but not change them.</div>`;
+  return "";
+}
+
+/* ---------- render: list ---------- */
+function renderList(){
+  const term=S.search.trim().toLowerCase();
+  const qs=S.quotes.filter(q=>!term||[q.customer,q.number,q.summary&&q.summary.items].join(" ").toLowerCase().includes(term));
+  let h=modeBanner()+`<div class="list-head"><h1>Quotes</h1><input class="search" id="search" type="search" placeholder="Search customer, quote # or item" value="${esc(S.search)}" aria-label="Search quotes"></div>`;
+  if(!S.loaded){h+=`<div class="qlist"><div class="empty"><p>Loading saved quotes…</p></div></div>`}
+  else if(!S.quotes.length){
+    h+=`<div class="qlist"><div class="empty"><h2>No quotes yet</h2><p>Start a quote, add each item with its colors and sizes, then download it as a PDF for your customer. Every quote you make is saved here for the whole team.</p>${S.readOnly?"":`<button class="btn primary" data-act="new">+ New quote</button>`}</div></div>`;
+  }else{
+    h+=`<div class="qlist" role="list"><div class="qrow head"><span>Quote #</span><span>Customer</span><span>Status</span><span>Date</span><span style="text-align:right">Total</span><span></span></div>`;
+    if(!qs.length)h+=`<div class="empty"><p>No quotes match “${esc(S.search)}”.</p></div>`;
+    qs.forEach(q=>{
+      const st=STATUSES.find(s=>s[0]===q.status)||STATUSES[0];
+      const sm=q.summary||{};
+      const conf=S.confirm===q.id;
+      h+=`<div class="qrow" role="listitem" data-open="${esc(q.id)}" tabindex="0">
+        <span class="qnum">#${esc(q.number)}</span>
+        <span class="qcust">${esc(q.customer||"Untitled quote")}<small>${esc(sm.items||"No items yet")} · ${sm.pieces||0} pcs</small></span>
+        <span><span class="pill ${st[0]}">${st[1]}</span></span>
+        <span class="qdate">${parseISO(q.date).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</span>
+        <span class="qmoney">${money(sm.total||0)}</span>
+        <span class="qacts">${S.readOnly?"":(S.mode==="cloud"&&!S.isAdmin&&q._by!==S.uid)?`<button class="icon-btn" title="Duplicate" aria-label="Duplicate quote" data-act="dup" data-id="${esc(q.id)}">⧉</button>`:conf?`<button class="btn sm danger solid" data-act="del-yes" data-id="${esc(q.id)}">Delete</button><button class="btn sm" data-act="del-no">Keep</button>`:
+          `<button class="icon-btn" title="Duplicate" aria-label="Duplicate quote" data-act="dup" data-id="${esc(q.id)}">⧉</button><button class="icon-btn danger" title="Delete" aria-label="Delete quote" data-act="del" data-id="${esc(q.id)}">✕</button>`}</span>
+      </div>`});
+    h+=`</div>`;
+  }
+  $("#view").innerHTML=h;
+}
+
+/* ---------- render: editor ---------- */
+function sizeInputs(ii,ci,c){
+  return SIZES.map(s=>`<td><input class="inp qty${s.big?" big":""}" type="number" inputmode="numeric" min="0" step="1" aria-label="${esc(s.label)} quantity" id="q-${ii}-${ci}-${s.k}" data-b="items.${ii}.colors.${ci}.q.${s.k}" data-t="int" value="${c.q&&c.q[s.k]?esc(c.q[s.k]):""}" placeholder="–"></td>`).join("");
+}
+function itemCard(it,ii,n){
+  let h=`<section class="card item" aria-label="Item ${ii+1}">
+  <div class="item-top"><input class="inp item-name" id="in-${ii}" data-b="items.${ii}.name" value="${esc(it.name)}" placeholder="Item name, e.g. Hoodie" aria-label="Item name">
+   <div class="item-tools"><button class="icon-btn" title="Move up" aria-label="Move item up" data-act="up" data-i="${ii}" ${ii===0?"disabled":""}>↑</button><button class="icon-btn" title="Move down" aria-label="Move item down" data-act="down" data-i="${ii}" ${ii===n-1?"disabled":""}>↓</button><button class="icon-btn" title="Duplicate item" aria-label="Duplicate item" data-act="dupitem" data-i="${ii}">⧉</button>${S.confirm==="item"+ii?`<button class="btn sm danger solid" data-act="rmitem-yes" data-i="${ii}">Remove</button><button class="btn sm" data-act="cancel">Keep</button>`:`<button class="icon-btn danger" title="Remove item" aria-label="Remove item" data-act="rmitem" data-i="${ii}">✕</button>`}</div></div>
+  <div class="item-body">
+    <div class="field"><label for="ib-${ii}">Garment / blank</label><input class="inp" id="ib-${ii}" data-b="items.${ii}.blank" value="${esc(it.blank)}" placeholder="e.g. ATC™ Everyday Fleece Hoodie"></div>
+    <div class="field"><label for="ip-${ii}">Printing <span class="hint">· one location per line</span></label><textarea class="inp" rows="2" id="ip-${ii}" data-b="items.${ii}.printing" placeholder="Small logo on left chest (3.5&quot; x 2.5&quot;)">${esc(it.printing)}</textarea></div>
+  </div>
+  <div class="prices">
+    <div class="field"><label for="pb-${ii}">XS–XL each</label><div class="prefix"><span>$</span><input class="inp" type="number" inputmode="decimal" min="0" step="0.01" id="pb-${ii}" data-b="items.${ii}.base" data-t="price" value="${it.base??""}" placeholder="0.00"></div></div>
+    ${BIG.map(s=>`<div class="field"><label for="pp-${ii}-${s.k}">${s.label} each</label><div class="prefix"><span>$</span><input class="inp" type="number" inputmode="decimal" min="0" step="0.01" id="pp-${ii}-${s.k}" data-b="items.${ii}.prices.${s.k}" data-t="price" data-ph="${ii}-${s.k}" value="${it.prices&&it.prices[s.k]!=null?esc(it.prices[s.k]):""}" placeholder="${priceFor(it,s.k).toFixed(2)}"></div></div>`).join("")}
+  </div>
+  <p class="hint" style="margin:6px 0 0">Leave a larger size empty to use the price of the size before it.</p>
+  <div class="sect-label"><b>Colors &amp; sizes</b><span class="hint">Enter how many of each size, per color.</span></div>
+  <div class="cgrid-scroll"><table class="cgrid"><thead><tr><th class="l">Color</th>${SIZES.map(s=>`<th>${s.k}</th>`).join("")}<th style="text-align:right;padding-right:8px">Qty</th><th></th><th></th></tr></thead><tbody>`;
+  it.colors.forEach((c,ci)=>{
+    h+=`<tr class="${c.unavailable?"na":""}"><td class="cname"><input class="inp" id="cn-${ii}-${ci}" data-b="items.${ii}.colors.${ci}.name" value="${esc(c.name)}" placeholder="e.g. Black" aria-label="Color name"></td>${sizeInputs(ii,ci,c)}
+    <td class="tot" data-o="cq-${ii}-${ci}">0</td>
+    <td><label class="na-toggle" title="Mark this color as not available"><input type="checkbox" id="na-${ii}-${ci}" data-b="items.${ii}.colors.${ci}.unavailable" data-t="bool" ${c.unavailable?"checked":""}>Not available</label></td>
+    <td><button class="icon-btn danger" title="Remove color" aria-label="Remove color" data-act="rmcolor" data-i="${ii}" data-c="${ci}">✕</button></td></tr>`;
+    if(c.unavailable)h+=`<tr class="na-row"><td colspan="${SIZES.length+4}"><div class="na-box"><span>Suggest instead:</span><input class="inp" id="sg-${ii}-${ci}" data-b="items.${ii}.colors.${ci}.suggest" value="${esc(c.suggest)}" placeholder="e.g. Dark Heather Gray, Ash Gray (leave empty for “another color”)"></div></td></tr>`;
+  });
+  h+=`</tbody></table></div>
+  <div class="item-foot"><button class="btn sm" data-act="addcolor" data-i="${ii}">+ Add color</button><span class="sum" data-o="isum-${ii}"></span></div></section>`;
+  return h;
+}
+function remoteBanner(){return `<div class="banner" id="remoteBanner">Someone else just changed this quote. <button class="btn sm" data-act="loadremote">Load their version</button><span class="hint">Or keep editing to keep yours.</span></div>`}
+function renderEditor(){
+  const q=S.quote;
+  const st=STATUSES.map(([v,l])=>`<option value="${v}" ${q.status===v?"selected":""}>${l}</option>`).join("");
+  let h=modeBanner();
+  if(S.remoteNewer)h+=remoteBanner();
+  h+=`<div class="ed-bar"><button class="btn ghost" data-act="home">← All quotes</button>
+    <h1 class="ed-title"><small>#${esc(q.number)}</small>${esc(q.customer||"New quote")}</h1>
+    <span class="save-state" id="saveState" aria-live="polite"></span>
+    <select class="inp" style="width:auto" id="status" data-b="status" aria-label="Quote status" ${S.readOnly?"disabled":""}>${st}</select>
+    ${S.readOnly?"":`<button class="btn" data-act="dupquote">Duplicate</button>`}
+    <button class="btn primary" data-act="pdf" id="pdfBtn">Download PDF</button></div>
+  <div class="ed-grid"><div class="ed-form"><fieldset class="ro" ${S.readOnly?"disabled":""}>
+  <section class="card"><div class="card-h"><h2>Quote details</h2></div><div class="fields">
+    <div class="field"><label for="f-cust">Customer</label><input class="inp" id="f-cust" data-b="customer" value="${esc(q.customer)}" placeholder="e.g. Tina, Lincoln High Boosters"></div>
+    <div class="field"><label for="f-num">Quote #</label><input class="inp" id="f-num" data-b="number" value="${esc(q.number)}"></div>
+    <div class="field"><label for="f-date">Date</label><input class="inp" type="date" id="f-date" data-b="date" value="${esc(q.date)}"></div>
+    <div class="field"><label for="f-valid">Good for (days)</label><input class="inp" type="number" min="0" step="1" id="f-valid" data-b="validDays" data-t="int" value="${esc(q.validDays)}"><span class="hint" data-o="until"></span></div>
+  </div></section>
+  ${q.items.map((it,ii)=>itemCard(it,ii,q.items.length)).join("")}
+  <button class="add-item" data-act="additem">+ Add item</button>
+  <section class="card"><div class="card-h"><h2>Discount, tax &amp; deposit</h2></div><div class="fields">
+    <div class="field"><label for="f-disc">Discount</label><div class="split"><select class="inp" id="f-disct" data-b="discount.type" aria-label="Discount type"><option value="pct" ${q.discount.type!=="amt"?"selected":""}>%</option><option value="amt" ${q.discount.type==="amt"?"selected":""}>$</option></select><input class="inp" type="number" min="0" step="0.01" id="f-disc" data-b="discount.value" data-t="num" value="${q.discount.value||""}" placeholder="0"></div></div>
+    <div class="field"><label for="f-tax">Tax rate</label><div class="suffix"><input class="inp" type="number" min="0" step="0.001" id="f-tax" data-b="taxRate" data-t="num" value="${q.taxRate||""}" placeholder="0"><span>%</span></div></div>
+    <div class="field"><label for="f-dep">Deposit</label><div class="split"><select class="inp" id="f-dept" data-b="deposit.type" aria-label="Deposit type"><option value="pct" ${q.deposit.type!=="amt"?"selected":""}>%</option><option value="amt" ${q.deposit.type==="amt"?"selected":""}>$</option></select><input class="inp" type="number" min="0" step="0.01" id="f-dep" data-b="deposit.value" data-t="num" value="${q.deposit.value||""}" placeholder="0"></div></div>
+  </div>
+  <div style="margin-top:14px" data-o="sumbox"></div></section>
+  <section class="card"><div class="card-h"><h2>Notes on the quote</h2></div><div class="fields" style="grid-template-columns:minmax(0,1fr)">
+    <div class="field"><label for="f-notes">“Good to know” list <span class="hint">· one point per line</span></label><textarea class="inp" rows="5" id="f-notes" data-b="notes">${esc(q.notes)}</textarea></div>
+    <div class="field"><label for="f-close">Closing line</label><input class="inp" id="f-close" data-b="closing" value="${esc(q.closing)}"></div>
+  </div></section>
+  </fieldset></div>
+  <aside class="ed-preview" aria-label="Quote preview"><div class="pv-label"><span>Live preview</span><span data-o="pvtotal"></span></div><div class="pv-scroll"><div class="pv-wrap" id="pv"></div></div></aside></div>`;
+  $("#view").innerHTML=h;
+  paintSave();refresh();
+}
+function refresh(){
+  const q=S.quote;if(!q)return;
+  const c=calc(q);
+  const set=(k,v)=>{const el=document.querySelector(`[data-o="${k}"]`);if(el)el.innerHTML=v};
+  set("until","Good until "+fmtDate(goodUntil(q)));
+  c.items.forEach(x=>{
+    x.it.colors.forEach((col,ci)=>set(`cq-${x.idx}-${ci}`,col._qty?`${col._qty}<br><span class="hint">${money(col._total)}</span>`:"0"));
+    set(`isum-${x.idx}`,`${x.qty} pcs · <b>${money(x.total)}</b>`);
+    BIG.forEach(s=>{const el=document.querySelector(`[data-ph="${x.idx}-${s.k}"]`);if(el)el.placeholder=priceFor(x.it,s.k).toFixed(2)});
+  });
+  let sb=`<div class="sumline"><span>${c.pieces} pieces · Subtotal</span><span>${money(c.sub)}</span></div>`;
+  if(c.disc>0)sb+=`<div class="sumline"><span>Discount</span><span>−${money(c.disc)}</span></div>`;
+  if(c.tax>0)sb+=`<div class="sumline"><span>Tax</span><span>${money(c.tax)}</span></div>`;
+  sb+=`<div class="sumline big"><span>Total</span><span>${money(c.total)}</span></div>`;
+  if(c.dep>0)sb+=`<div class="sumline"><span>Deposit due</span><span>${money(c.dep)}</span></div><div class="sumline"><span>Balance</span><span>${money(c.bal)}</span></div>`;
+  set("sumbox",sb);
+  set("pvtotal",`${c.pieces} pcs · ${money(c.total)}`);
+  const t=$(".ed-title");if(t)t.innerHTML=`<small>#${esc(q.number)}</small>${esc(q.customer||"New quote")}`;
+  schedulePreview();
+}
+let pvRaf=0;
+function schedulePreview(){cancelAnimationFrame(pvRaf);pvRaf=requestAnimationFrame(drawPreview)}
+function drawPreview(){
+  const pv=$("#pv");if(!pv||!S.quote)return;
+  pv.innerHTML=paperHTML(S.quote,S.settings,false);fitPreview();
+}
+function fitPreview(){
+  const pv=$("#pv");if(!pv)return;const p=pv.firstElementChild;if(!p)return;
+  const sc=pv.clientWidth/816;p.style.transform=`scale(${sc})`;pv.style.height=(p.offsetHeight*sc)+"px";
+}
+if(window.ResizeObserver){new ResizeObserver(()=>fitPreview()).observe(document.documentElement)}else{window.addEventListener("resize",fitPreview)}
+
+/* ---------- render: settings ---------- */
+function renderSettings(){
+  const s=S.settings;
+  $("#view").innerHTML=modeBanner()+`<div class="ed-bar"><button class="btn ghost" data-act="home">← All quotes</button><h1 class="ed-title">Settings</h1><button class="btn primary" data-act="savesettings">Save settings</button></div>
+  <div class="set-grid">
+  <section class="card"><div class="card-h"><h2>Your company</h2></div><div class="fields" style="grid-template-columns:minmax(0,1fr)">
+    <div class="field"><label for="s-name">Company name</label><input class="inp" id="s-name" value="${esc(s.companyName)}" placeholder="Shown at the top of every quote"></div>
+    <div class="field"><span class="lbl">Logo</span><div class="logo-box"><div class="logo-prev" id="logoPrev">${s.logo?`<img src="${esc(s.logo)}" alt="Logo preview">`:"No logo"}</div>
+      <div style="display:flex;flex-direction:column;gap:6px"><label class="btn" for="s-logo" style="cursor:pointer">Upload logo</label><input type="file" id="s-logo" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden>
+      <button class="btn ghost danger sm" data-act="rmlogo" ${s.logo?"":"hidden"} id="rmLogo">Remove logo</button></div></div>
+      <span class="hint">PNG with a transparent background looks best. It's resized automatically.</span></div>
+  </div></section>
+  <section class="card"><div class="card-h"><h2>Defaults for new quotes</h2></div><div class="fields">
+    <div class="field"><label for="s-next">Next quote #</label><input class="inp" type="number" min="1" step="1" id="s-next" value="${esc(s.nextNumber)}"></div>
+    <div class="field"><label for="s-valid">Good for (days)</label><input class="inp" type="number" min="0" step="1" id="s-valid" value="${esc(s.validDays)}"></div>
+    <div class="field"><label for="s-tax">Tax rate (%)</label><input class="inp" type="number" min="0" step="0.001" id="s-tax" value="${esc(s.taxRate||"")}" placeholder="0"></div>
+  </div>
+  <div class="fields" style="grid-template-columns:minmax(0,1fr);margin-top:12px">
+    <div class="field"><label for="s-notes">“Good to know” list <span class="hint">· one point per line</span></label><textarea class="inp" rows="5" id="s-notes">${esc(s.notes)}</textarea></div>
+    <div class="field"><label for="s-close">Closing line</label><input class="inp" id="s-close" value="${esc(s.closing)}"></div>
+    <span class="hint">These apply to new quotes. Existing quotes keep their own notes.</span>
+  </div></section></div>`;
+  S._logo=s.logo||"";
+}
+function readLogo(file){
+  return new Promise((res,rej)=>{
+    const fr=new FileReader();fr.onerror=()=>rej(new Error("read"));
+    fr.onload=()=>{const img=new Image();img.onerror=()=>rej(new Error("img"));img.onload=()=>{
+      let w=img.naturalWidth||600,h=img.naturalHeight||200;
+      const fit=(mw,mh)=>{const k=Math.min(1,mw/w,mh/h);return [Math.max(1,Math.round(w*k)),Math.max(1,Math.round(h*k))]};
+      let out="";for(const [mw,mh] of [[720,240],[480,160],[320,110]]){
+        const [cw,ch]=fit(mw,mh);const cv=document.createElement("canvas");cv.width=cw;cv.height=ch;cv.getContext("2d").drawImage(img,0,0,cw,ch);
+        out=cv.toDataURL("image/png");if(out.length<170000)break;out=cv.toDataURL("image/webp",0.9);if(out.length<170000)break}
+      if(out.length>=170000)rej(new Error("big"));else res(out)};img.src=fr.result};
+    fr.readAsDataURL(file)});
+}
+
+/* ---------- PDF ---------- */
+async function downloadPDF(){
+  const q=S.quote;if(!q)return;
+  if(!window.html2canvas||!window.jspdf){toast("The PDF tools are still loading. Try again in a moment.");return}
+  const btn=$("#pdfBtn");if(btn){btn.disabled=true;btn.textContent="Making PDF…"}
+  try{
+    const stage=$("#stage");stage.innerHTML=paperHTML(q,S.settings,true);
+    const paper=stage.firstElementChild;
+    try{await document.fonts.ready}catch(e){}
+    await Promise.all([...paper.querySelectorAll("img")].map(i=>i.decode?i.decode().catch(()=>{}):null));
+    const top=paper.getBoundingClientRect().top,H=paper.offsetHeight;
+    const bottom=el=>el.getBoundingClientRect().bottom-top;
+    const cands=new Set();
+    paper.querySelectorAll(".brk").forEach(el=>cands.add(bottom(el)));
+    const th=paper.querySelector("thead");if(th)cands.add(bottom(th));
+    paper.querySelectorAll("tbody.p-item").forEach(tb=>{const info=tb.querySelector(".p-iteminfo");const ib=info?bottom(info):0;
+      tb.querySelectorAll("tr").forEach(tr=>{const b=bottom(tr);if(b>=ib-1)cands.add(b)})});
+    const ys=[...cands].map(y=>Math.round(y)).sort((a,b)=>a-b);
+    const canvas=await html2canvas(paper,{scale:2,backgroundColor:"#ffffff",logging:false,useCORS:true,windowWidth:1200});
+    const ratio=canvas.height/H,PAGE=960,pages=[];let start=0;
+    while(start<H-2){const lim=start+PAGE;if(lim>=H){pages.push([start,H]);break}
+      const ok=ys.filter(y=>y>start+120&&y<=lim);const end=ok.length?ok[ok.length-1]:lim;pages.push([start,end]);start=end}
+    const pdf=new window.jspdf.jsPDF({unit:"pt",format:"letter",compress:true});
+    pages.forEach(([a,b],i)=>{
+      if(i)pdf.addPage();
+      const sh=Math.max(1,Math.round((b-a)*ratio)),cv=document.createElement("canvas");cv.width=canvas.width;cv.height=sh;
+      const ctx=cv.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,cv.width,sh);ctx.drawImage(canvas,0,Math.round(a*ratio),cv.width,sh,0,0,cv.width,sh);
+      pdf.addImage(cv.toDataURL("image/jpeg",0.93),"JPEG",0,36,612,(b-a)*0.75);
+      if(pages.length>1){pdf.setFontSize(8);pdf.setTextColor(120,128,145);pdf.text(`Quote #${q.number} · Page ${i+1} of ${pages.length}`,576,768,{align:"right"})}
+    });
+    const blob=pdf.output("blob");
+    const safe=s=>String(s||"").replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"-");
+    const name=["Quote",safe(q.number),safe(q.customer)].filter(Boolean).join("-")+".pdf";
+    stage.innerHTML="";
+    const file=(typeof File==="function")?new File([blob],name,{type:"application/pdf"}):null;
+    const touch=window.matchMedia&&matchMedia("(pointer:coarse)").matches;
+    if(touch&&file&&navigator.canShare&&navigator.canShare({files:[file]})){
+      try{await navigator.share({files:[file],title:name})}catch(err){if(err&&err.name!=="AbortError")pdf.save(name)}
+    }else{pdf.save(name);toast("PDF downloaded")}
+    if(q.status==="draft"&&!S.readOnly){q.status="sent";const sel=$("#status");if(sel)sel.value="sent";markDirty()}
+  }catch(e){
+    console.error(e);toast("Couldn't make the PDF. Try again.")
+  }finally{if(btn){btn.disabled=false;btn.textContent="Download PDF"}}
+}
+
+/* ---------- events ---------- */
+function setPath(obj,path,val){const p=path.split(".");let o=obj;for(let i=0;i<p.length-1;i++){const k=p[i];if(o[k]==null)o[k]={};o=o[k]}o[p[p.length-1]]=val}
+function coerce(el){
+  const t=el.dataset.t,v=el.type==="checkbox"?el.checked:el.value;
+  if(t==="bool")return !!v;
+  if(t==="int"){const n=parseInt(v,10);return isFinite(n)&&n>0?n:0}
+  if(t==="price")return v===""?null:Math.max(0,num(v));
+  if(t==="num")return Math.max(0,num(v));
+  return v;
+}
+document.addEventListener("input",e=>{
+  const el=e.target;
+  if(el.id==="search"){S.search=el.value;const pos=el.selectionStart;renderList();const n=$("#search");n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}return}
+  if(!S.quote||!el.dataset||!el.dataset.b||S.view!=="edit")return;
+  if(el.type==="checkbox"||el.tagName==="SELECT")return;
+  setPath(S.quote,el.dataset.b,coerce(el));if(S.remoteNewer){S.remoteNewer=false;const rb=$("#remoteBanner");rb&&rb.remove()}markDirty();refresh();
+});
+document.addEventListener("change",async e=>{
+  const el=e.target;
+  if(el.id==="s-logo"&&el.files&&el.files[0]){
+    try{S._logo=await readLogo(el.files[0]);$("#logoPrev").innerHTML=`<img src="${S._logo}" alt="Logo preview">`;$("#rmLogo").hidden=false;toast("Logo ready. Save settings to use it.")}
+    catch(err){toast(err.message==="big"?"That logo is too detailed to store. Try a simpler PNG.":"Couldn't read that image. Try a PNG or JPG.")}
+    el.value="";return}
+  if(!S.quote||!el.dataset||!el.dataset.b||S.view!=="edit")return;
+  if(el.type!=="checkbox"&&el.tagName!=="SELECT")return;
+  setPath(S.quote,el.dataset.b,coerce(el));markDirty();
+  if(el.type==="checkbox"){const id=el.id;renderEditor();const n=document.getElementById(id);n&&n.focus();
+    if(el.checked){const sg=document.getElementById(id.replace("na-","sg-"));sg&&sg.focus()}}
+  else refresh();
+});
+document.addEventListener("keydown",e=>{
+  const row=e.target.closest&&e.target.closest("[data-open]");
+  if(row&&e.target===row&&(e.key==="Enter"||e.key===" ")){e.preventDefault();openQuote(row.dataset.open)}
+});
+document.addEventListener("click",async e=>{
+  const b=e.target.closest("[data-act]");
+  if(!b){const row=e.target.closest("[data-open]");if(row)openQuote(row.dataset.open);return}
+  e.stopPropagation();
+  const a=b.dataset.act,ii=+b.dataset.i,ci=+b.dataset.c,q=S.quote;
+  const restruct=(focusId)=>{markDirty();renderEditor();if(focusId){const n=document.getElementById(focusId);n&&n.focus()}};
+  switch(a){
+    case "home":if(S.view!=="login"&&S.view!=="reset")goHome();break;
+    case "signout":await flush();await S.sb.auth.signOut();break;
+    case "back-login":renderLogin();break;
+    case "new":createQuote();break;
+    case "settings":await flush();S.view="settings";S.quote=null;render();break;
+    case "dup":{const src=S.quotes.find(x=>x.id===b.dataset.id);if(src)duplicateQuote(src);break}
+    case "dupquote":await flush();duplicateQuote(S.quote);break;
+    case "del":S.confirm=b.dataset.id;renderList();break;
+    case "del-no":S.confirm=null;renderList();break;
+    case "del-yes":try{await removeQuote(b.dataset.id);toast("Quote deleted")}catch(err){toast("Couldn't delete that quote.")}S.confirm=null;renderList();break;
+    case "pdf":downloadPDF();break;
+    case "loadremote":{const r=S.quotes.find(x=>x.id===q.id);if(r){S.quote=clone(r);delete S.quote.summary;delete S.quote._sess;S.remoteNewer=false;S.pending=false;renderEditor()}break}
+    case "additem":q.items.push(newItem());restruct("in-"+(q.items.length-1));break;
+    case "rmitem":S.confirm="item"+ii;renderEditor();break;
+    case "cancel":S.confirm=null;renderEditor();break;
+    case "rmitem-yes":q.items.splice(ii,1);S.confirm=null;restruct();break;
+    case "dupitem":{const c=clone(q.items[ii]);c.id=uid("i");c.colors.forEach(x=>x.id=uid("c"));c.name=c.name?c.name+" (copy)":"";q.items.splice(ii+1,0,c);restruct("in-"+(ii+1));break}
+    case "up":if(ii>0){[q.items[ii-1],q.items[ii]]=[q.items[ii],q.items[ii-1]];restruct()}break;
+    case "down":if(ii<q.items.length-1){[q.items[ii+1],q.items[ii]]=[q.items[ii],q.items[ii+1]];restruct()}break;
+    case "addcolor":q.items[ii].colors.push(newColor());restruct(`cn-${ii}-${q.items[ii].colors.length-1}`);break;
+    case "rmcolor":q.items[ii].colors.splice(ci,1);restruct();break;
+    case "rmlogo":S._logo="";$("#logoPrev").textContent="No logo";b.hidden=true;break;
+    case "savesettings":{
+      const s={...S.settings,companyName:$("#s-name").value.trim(),logo:S._logo||"",nextNumber:Math.max(1,parseInt($("#s-next").value,10)||1001),
+        validDays:Math.max(0,parseInt($("#s-valid").value,10)||0),taxRate:Math.max(0,num($("#s-tax").value)),notes:$("#s-notes").value,closing:$("#s-close").value};
+      try{await storeSettings(s);S.settings={...DEFAULT_SETTINGS,...s};renderChrome();toast("Settings saved")}
+      catch(err){toast("Couldn't save settings. Try again.")}
+      break}
+  }
+});
+window.addEventListener("beforeunload",()=>{flush()});
+
+/* ---------- sign in (same 6-digit email code as the team tracker) ---------- */
+function renderLogin(msg){
+  $("#view").innerHTML=`<form class="auth" id="loginForm" novalidate>
+    <h1>Sign in</h1><p>Enter your work email. We'll email you a 6-digit code. It's the same sign-in as the Aurora team tracker.</p>
+    <div class="field"><label for="l-email">Email</label><input class="inp" id="l-email" type="email" autocomplete="email" required value="${esc(S._lastEmail||"")}"></div>
+    <div class="err" id="l-err" role="alert">${esc(msg||"")}</div>
+    <button class="btn primary" type="submit" id="l-btn">Email me a code</button></form>`;
+  $("#loginForm").addEventListener("submit",e=>{e.preventDefault();sendCode()});
+}
+async function sendCode(){
+  const email=$("#l-email").value.trim().toLowerCase(),err=$("#l-err"),btn=$("#l-btn");
+  if(!/^\S+@\S+\.\S+$/.test(email)){err.textContent="Enter a valid email address.";return}
+  btn.disabled=true;btn.textContent="Sending…";S._lastEmail=email;
+  const {error}=await S.sb.auth.signInWithOtp({email,options:{shouldCreateUser:true}});
+  btn.disabled=false;btn.textContent="Email me a code";
+  if(error){err.textContent=/rate|seconds/i.test(error.message)?"Please wait a minute before asking for another code.":"Couldn't send the code. Try again in a moment.";return}
+  renderCode();
+}
+function renderCode(msg){
+  $("#view").innerHTML=`<form class="auth" id="codeForm" novalidate>
+    <h1>Check your email</h1><p>We sent a 6-digit code to <b>${esc(S._lastEmail)}</b>.</p>
+    <div class="field"><label for="l-code">Code</label><input class="inp code-inp" id="l-code" inputmode="numeric" autocomplete="one-time-code" maxlength="10" required></div>
+    <div class="err" id="c-err" role="alert">${esc(msg||"")}</div>
+    <button class="btn primary" type="submit" id="c-btn">Sign in</button>
+    <button class="linkish" type="button" data-act="back-login">Use a different email</button></form>`;
+  $("#codeForm").addEventListener("submit",e=>{e.preventDefault();verifyCode()});
+  setTimeout(()=>{const c=$("#l-code");c&&c.focus()},30);
+}
+async function verifyCode(){
+  const token=$("#l-code").value.replace(/\D/g,""),err=$("#c-err"),btn=$("#c-btn");
+  if(token.length<6){err.textContent="Enter the 6-digit code from the email.";return}
+  btn.disabled=true;btn.textContent="Checking…";
+  const {error}=await S.sb.auth.verifyOtp({email:S._lastEmail,token,type:"email"});
+  btn.disabled=false;btn.textContent="Sign in";
+  if(error)err.textContent="That code didn't work. Check it, or go back and ask for a new one.";
+}
+async function joinTeam(){
+  const {data,error}=await S.sb.rpc("join_team");
+  if(error){
+    if(/not_invited/.test(error.message)){await S.sb.auth.signOut();S.view="login";renderChrome();renderLogin("This email isn't on the team yet. Ask your manager to add you on the Team page of the tracker.");return false}
+    throw error;
+  }
+  const p=Array.isArray(data)?data[0]:data;S.isAdmin=!!(p&&p.role==="admin");return true;
+}
+
+/* ---------- boot ---------- */
+function startLocal(){
+  S.mode="local";const d=lsRead();if(d.settings)S.settings={...DEFAULT_SETTINGS,...d.settings};localQuotes();S.view="list";render();
+}
+let started=false,channel=null;
+async function loadAll(){
+  const [qr,sr]=await Promise.all([
+    S.sb.from("quotes").select("id,data,created_by").order("updated_at",{ascending:false}).limit(1000),
+    S.sb.from("quote_settings").select("data").eq("id","company").maybeSingle()]);
+  if(qr.error){S.loadErr="Couldn't load saved quotes. Check your connection and reload.";S.loaded=true;render();return}
+  S.loadErr="";S.loaded=true;
+  S.quotes=qr.data.map(r=>({...r.data,id:r.id,_by:r.created_by}));
+  if(sr.data&&sr.data.data)S.settings={...DEFAULT_SETTINGS,...sr.data.data};
+  if(S.view==="list"||S.view==="loading"){S.view="list";render()}else renderChrome();
+}
+function onRemoteQuote(p){
+  if(p.eventType==="DELETE"){const id=p.old&&p.old.id;S.quotes=S.quotes.filter(x=>x.id!==id)}
+  else if(p.new&&p.new.data){const doc={...p.new.data,id:p.new.id,_by:p.new.created_by};upsertLocal(doc)}
+  if(S.view==="list")renderList();
+  else if(S.view==="edit"&&S.quote){
+    const r=S.quotes.find(x=>x.id===S.quote.id);
+    if(r&&r._sess!==S.sess&&num(r.updatedAt)>num(S.lastSavedAt)&&num(r.updatedAt)>num(S.quote.updatedAt)&&!S.remoteNewer){
+      S.remoteNewer=true;const v=$("#view");if(v&&!$("#remoteBanner"))v.insertAdjacentHTML("afterbegin",remoteBanner())}
+  }
+}
+async function startCloud(){
+  try{if(!(await joinTeam()))return}catch(e){S.view="login";renderChrome();renderLogin("Couldn't check your team access. Try again.");return}
+  if(!started){started=true;
+    channel=S.sb.channel("quotes-live")
+      .on("postgres_changes",{event:"*",schema:"public",table:"quotes"},onRemoteQuote)
+      .on("postgres_changes",{event:"*",schema:"public",table:"quote_settings"},p=>{if(p.new&&p.new.data){S.settings={...DEFAULT_SETTINGS,...p.new.data};renderChrome();if(S.view==="edit")schedulePreview()}})
+      .subscribe();
+    document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&S.mode==="cloud"&&S.email&&S.view==="list")loadAll()});
+  }
+  if(S.view==="login"||S.view==="loading")S.view="list";
+  S.loaded=false;render();await loadAll();
+}
+async function boot(){
+  const cfg=window.AURORA_CONFIG||{};
+  if(!cfg.supabaseUrl||!cfg.supabaseKey||!window.supabase){render();startLocal();return}
+  S.mode="cloud";S.view="loading";renderChrome();
+  $("#view").innerHTML=`<p class="hint" style="padding:24px 0">Loading…</p>`;
+  S.sb=window.supabase.createClient(cfg.supabaseUrl,cfg.supabaseKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
+  S.sb.auth.onAuthStateChange((ev,session)=>{
+    if(ev==="SIGNED_OUT"){S.email="";S.uid="";S.isAdmin=false;S.quote=null;S.quotes=[];S.view="login";render();return}
+    if(ev==="SIGNED_IN"&&session&&!S.email){S.email=session.user.email||"";S.uid=session.user.id;setTimeout(startCloud,0)}
+  });
+  const {data}=await S.sb.auth.getSession();
+  if(data&&data.session){if(!S.email){S.email=data.session.user.email||"";S.uid=data.session.user.id;startCloud()}}
+  else{S.view="login";render()}
+}
+if("serviceWorker" in navigator&&(location.protocol==="https:"||location.hostname==="localhost")){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}))}
+boot();
+})();
+</script>
+</body>
+</html>

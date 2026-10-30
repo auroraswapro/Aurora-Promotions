@@ -104,3 +104,27 @@ Only emails you've added on the Team page can see anything.
   Daily use keeps it awake.
 - **Backups:** Supabase → **Database → Backups**, or ask Claude to add an export button.
 - **Want changes?** Tell Claude what you'd like and it will update the website.
+
+---
+
+## Aurora Quotes (apparel quote builder)
+
+The quote builder lives at **https://auroraswapro.github.io/Aurora-Promotions/quotes/**.
+It uses the same database and the same 6-digit email sign-in as the team tracker.
+Anyone on the Team page can use it.
+
+### One-time setup (2 minutes)
+1. Supabase → **SQL Editor** → **New query**.
+2. Paste the whole of [`supabase/quotes.sql`](supabase/quotes.sql) and click **Run**.
+   You should see **"Success. No rows returned"**. This adds the quote tables only.
+   It doesn't change anything in the tracker.
+
+### Who can do what
+- **Everyone on the team** can create, edit, duplicate and download quotes.
+- **Only the person who made a quote, or a manager,** can delete it.
+- **Only managers** see **Settings**: company name, logo, next quote number, default notes and tax rate.
+
+### Install it like an app
+- **iPhone:** open the link in Safari → **Share** → **Add to Home Screen**.
+- **Android:** open it in Chrome → **⋮** → **Install app**.
+- **Computer:** in Chrome or Edge, click the install icon in the address bar.
