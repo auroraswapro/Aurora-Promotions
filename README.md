@@ -106,3 +106,7 @@ public/styles.css    Aurora brand theme (light + dark)
 public/logo.svg      Aurora Promotions mark
 scripts/seed-demo.js Sample data generator
 ```
+
+## Aurora Quotes
+
+Apparel quote builder at `web/quotes/`, published to `/quotes/` on the same site. Reps add items, colors, sizes per color and prices (XS–XL plus separate XXL–5XL prices), flag unavailable colors, add discount, tax and deposit, and download a PDF. It shares the tracker's Supabase project and sign-in; the database tables are in `supabase/quotes.sql`. Setup steps are in [SETUP.md](SETUP.md#aurora-quotes-apparel-quote-builder).
