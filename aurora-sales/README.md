@@ -10,29 +10,30 @@ about the pipeline. **A person approves every email before it is sent.**
 
 ## How it works
 
-```
-Lead arrives ──▶ Claude reads it ──▶ Claude writes email 1 ──▶ Rep approves ──▶ Sent from your domain
- (website form,   (name, products,     (personal, follows         (edit, rewrite,
-  inbox, or        quantity, deadline,  the playbook)              or skip)
-  pasted in)       score, owner)
-                                              ▲                                     │
-                                              │        wait (2, 4, 7, 14 days)      │
-                                              └──── Claude writes the next one ◀────┘
+There is **no fixed email sequence**. Every email is written by Claude for that one lead, based on
+everything said so far, and a person approves it.
 
-Client replies ──▶ follow-ups stop ──▶ Claude reads the reply, updates the lead,
-                                       alerts the owner and drafts an answer for approval
 ```
+Lead arrives ──▶ Claude reads it ──▶ Claude writes an email ──▶ You approve ──▶ Sent from your domain
+                                      and suggests when to       (edit, rewrite,
+                                      check in again             change the timing)
+                                              ▲                                     │
+                                              │   no reply by the day Claude picked │
+                                              └──── Claude writes a new email ◀─────┘
+
+Client replies ──▶ Claude reads it, updates the lead and writes an answer for you to approve
+```
+
+Claude stops after a set number of emails in a row with no reply (5 by default, changeable in Settings).
 
 | Screen | What it's for |
 |---|---|
-| **Today** | Emails waiting for approval, latest replies, key numbers, and "What should I focus on today?" |
-| **Leads** | Every lead by stage, with Claude's score and suggested next step |
-| **Lead page** | Claude's summary, the follow-up schedule, full email history, notes, log a reply, custom emails |
+| **Today** | Emails waiting for your approval, latest replies, and "Plan my day" |
+| **Leads** | Every lead, its status, and Claude's suggested next step |
+| **Lead page** | Claude's view, when the next email is due, details, and the whole conversation |
 | **Add lead** | Paste any email, form or call notes; Claude fills in the lead and writes the first email |
-| **Ask Claude** | Questions about the pipeline ("Who's hot but hasn't heard from us?") |
-| **Playbook** | What Claude knows about Aurora, the tone and rules it follows, and the follow-up schedule |
-| **Team** | Managers add people by email; everyone signs in with a 6-digit code |
-| **How it works** | A one-page guide for the team |
+| **Ask Claude** | Questions about your leads ("Which hot leads haven't heard from us?") |
+| **Settings** | How Claude writes (about Aurora, tone, rules, signature), follow-up limit, and the team |
 
 ### What's in this folder
 
@@ -40,11 +41,11 @@ Client replies ──▶ follow-ups stop ──▶ Claude reads the reply, updat
 |---|---|
 | `web/` | The app the team uses (plain HTML/JS, no build step) |
 | `supabase/schema.sql` | Database tables and security rules (one copy-paste) |
-| `supabase/schedule.sql` | Turns on the 15-minute automatic follow-up schedule |
+| `supabase/schedule.sql` | Turns on the background check that runs every 15 minutes |
 | `supabase/functions/sales-ai` | Claude actions: read a lead, draft, rewrite, read a reply, summary, ask |
 | `supabase/functions/sales-send` | Sends one approved email from your mailbox |
 | `supabase/functions/sales-intake` | Where website forms and forwarded emails send new leads |
-| `supabase/functions/sales-cron` | Every 15 min: checks for replies, drafts due follow-ups, closes finished sequences |
+| `supabase/functions/sales-cron` | Every 15 min: checks for replies, has Claude write emails that are due, closes leads with no reply |
 
 ---
 
@@ -135,13 +136,13 @@ Optional secrets:
 | `APP_URL` | the GitHub Pages `/sales/` link | Link used in those alert emails |
 | `MAIL_REPLY_TO` | – | Send replies to a different address |
 
-### 6. Turn on the schedule
+### 6. Turn on the background check
 Open [`supabase/schedule.sql`](supabase/schedule.sql), replace `YOUR-PROJECT-REF` and
 `YOUR-CRON-SECRET`, paste it into the SQL Editor and **Run**.
 
 ### 7. Sign in
 Open the website, sign in with your email. **The first person to sign in becomes the sales
-manager.** Then add the team on **Team**, and check the **Playbook**.
+manager.** Then add the team under **Settings → Team**, and check **Settings → How Claude writes**.
 
 ---
 
@@ -190,6 +191,7 @@ function sendNewLeads() {
   the app from marking an email as sent; only the server can, after approval.
 - Reps approve emails for their own and unassigned leads; managers can approve any.
 - A reply stops the follow-ups. "Stop" / "unsubscribe" blocks all future emails to that lead.
-- Every email ends with the opt-out line from the Playbook.
+- Every email ends with the opt-out line set in Settings.
 - Claude is told never to invent prices or delivery dates.
+- Claude stops after the set number of emails with no reply.
 - The Claude key and mailbox passwords live only in Supabase secrets, never in the website.

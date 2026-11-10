@@ -137,7 +137,9 @@ create table if not exists public.leads (
   next_action     text not null default '' check (char_length(next_action) <= 1000),
   -- products, quantity, deadline, budget, location, notes, original enquiry …
   details         jsonb not null default '{}'::jsonb,
+  -- how many of our emails in a row have had no reply (resets when they reply)
   next_step       int  not null default 0 check (next_step between 0 and 50),
+  -- when Claude should write again if there's still no reply (Claude picks this for each email)
   next_due_at     timestamptz,
   last_contact_at timestamptz,
   last_reply_at   timestamptz,
@@ -159,8 +161,10 @@ create table if not exists public.lead_messages (
   direction    text not null check (direction in ('out','in','note')),
   -- draft: waiting for approval · sent · failed · skipped · received (a reply) · note
   status       text not null check (status in ('draft','sent','failed','skipped','received','note')),
-  kind         text not null default 'followup' check (kind in ('followup','reply','manual','inbound','note')),
+  kind         text not null default 'followup' check (kind in ('first','followup','reply','manual','inbound','note')),
   step         int,
+  -- Claude's suggestion: if no reply, write again after this many days (0 = don't follow up)
+  follow_up_days int check (follow_up_days is null or follow_up_days between 0 and 60),
   subject      text not null default '' check (char_length(subject) <= 400),
   body         text not null default '' check (char_length(body) <= 20000),
   ai_subject   text not null default '',
@@ -299,7 +303,7 @@ begin
   end loop;
 end $$;
 
--- ---------- starting playbook and follow-up schedule ------------------------
+-- ---------- starting playbook and follow-up limits --------------------------
 -- Managers can change all of this later on the Playbook page.
 insert into public.sales_settings (id, data) values ('playbook', jsonb_build_object(
   'company', 'Aurora Promotions',
@@ -314,15 +318,12 @@ insert into public.sales_settings (id, data) values ('playbook', jsonb_build_obj
   'assign', 'round_robin'
 )) on conflict (id) do nothing;
 
-insert into public.sales_settings (id, data) values ('sequence', jsonb_build_object(
-  'leadHours', 12,
-  'steps', jsonb_build_array(
-    jsonb_build_object('wait', 0,  'goal', 'Thank them for the enquiry, answer what they asked, and ask the one or two questions we need for a quote (quantity, colours, deadline).'),
-    jsonb_build_object('wait', 2,  'goal', 'Gentle check-in. Add something useful: an idea for their project, or how our free proof works.'),
-    jsonb_build_object('wait', 4,  'goal', 'Share a short example of similar work or a popular product for their type of business or event.'),
-    jsonb_build_object('wait', 7,  'goal', 'Mention timing: for their deadline, when they need to order. Offer to put together a quote with no obligation.'),
-    jsonb_build_object('wait', 14, 'goal', 'Polite last email. Say we will stop following up, and that they can reply any time when they are ready.')
-  )
+-- There is no fixed follow-up schedule: Claude decides what to say and when to check in,
+-- one email at a time. These are only the limits.
+insert into public.sales_settings (id, data) values ('followup', jsonb_build_object(
+  'maxFollowups', 5,   -- stop after this many emails in a row with no reply
+  'defaultDays', 3,    -- used only if Claude gives no suggestion
+  'leadHours', 12      -- write each follow-up this many hours early, so there's time to approve it
 )) on conflict (id) do nothing;
 
 -- Done! You should see "Success. No rows returned".

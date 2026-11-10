@@ -1,7 +1,7 @@
 // Every AI feature in Aurora Sales goes through Claude here.
 // Claude never sends anything itself: it writes drafts and suggestions that a person approves.
 import Anthropic from "npm:@anthropic-ai/sdk@^1.7.0";
-import { Lead, Message, Playbook, Sequence, UserError } from "./core.ts";
+import { Lead, Message, Playbook, UserError } from "./core.ts";
 
 const client = new Anthropic(); // reads the ANTHROPIC_API_KEY secret
 const MODEL = Deno.env.get("CLAUDE_MODEL") || "claude-opus-5-5";
@@ -119,33 +119,39 @@ ${text.slice(0, 20000)}
   );
 }
 
-// ---------- 2. write the next follow-up email ----------
+// ---------- 2. write the next email ----------
+// There is no fixed sequence. Claude reads the whole conversation, decides what this email
+// should do, and suggests when to check in again if the client doesn't reply.
 
-export type Draft = { subject: string; body: string; reason: string };
+export type Draft = { subject: string; body: string; reason: string; follow_up_days: number };
 const DRAFT_SCHEMA = {
   type: "object", additionalProperties: false,
-  properties: { subject: S, body: S, reason: S },
-  required: ["subject", "body", "reason"],
+  properties: { subject: S, body: S, reason: S, follow_up_days: { type: "integer" } },
+  required: ["subject", "body", "reason", "follow_up_days"],
 };
 
+export type DraftKind = "first" | "followup" | "reply" | "manual";
+
 export function draftEmail(args: {
-  playbook: Playbook; sequence: Sequence; lead: Lead; messages: Message[]; step: number | null;
-  rep: string; note?: string; replyTo?: string; previous?: string;
+  playbook: Playbook; lead: Lead; messages: Message[]; kind: DraftKind;
+  unanswered: number; maxFollowups: number; rep: string; note?: string; replyTo?: string; previous?: string;
 }): Promise<Draft> {
-  const { playbook: p, sequence, lead, messages, step, rep, note, replyTo, previous } = args;
-  const total = sequence.steps.length;
+  const { playbook: p, lead, messages, kind, unanswered, maxFollowups, rep, note, replyTo, previous } = args;
   let task: string;
-  if (replyTo !== undefined) {
+  if (kind === "reply") {
     task = `The client just replied (the last CLIENT REPLIED email). Write our answer to it. Answer their questions using only facts in the playbook; if they ask for a price or date we don't have, say the salesperson will confirm it today.`;
-  } else if (step === null) {
-    task = `Write a one-off email the salesperson asked for.`;
+  } else if (kind === "manual") {
+    task = `Write the email the salesperson asked for (see their instructions).`;
+  } else if (kind === "first") {
+    task = `This is our first email to this lead, answering their enquiry. Thank them, respond to exactly what they asked, and ask for what we still need to help them (for example quantity, colours, sizes or deadline - only what is missing).`;
   } else {
-    const s = sequence.steps[Math.min(step, total - 1)];
-    task = `This is follow-up email ${step + 1} of ${total} in our sequence. Goal of this email: ${s.goal}
-${step > 0 ? "They have not replied to our earlier emails. Do not repeat earlier emails; bring something new. Do not guilt-trip them for not replying." : ""}`;
+    const last = unanswered + 1 >= maxFollowups;
+    task = `They have not replied to our last ${unanswered} email${unanswered === 1 ? "" : "s"}. Write the next follow-up.
+Decide for yourself the most useful thing to say now, based on who they are, what they asked for and what we already said. Ideas: a helpful idea for their project, a reminder about timing for their deadline, a relevant product suggestion, an easy question. Never repeat an earlier email. Never guilt-trip them for not replying. Keep it shorter than the earlier emails.
+${last ? "This is the LAST follow-up we will send. Make it a polite close: say we won't keep following up and they can reply any time." : ""}`;
   }
   return askJSON<Draft>(
-    `You write sales emails for ${p.company}. Every email must feel personally written for this one client by a real person on the team. A salesperson will review your draft before it is sent.\n\n${playbookText(p)}`,
+    `You write sales emails for ${p.company}. Every email must feel personally written for this one client by a real person on the team, never like a template or an automated sequence. A salesperson will review your draft before it is sent.\n\n${playbookText(p)}`,
     `Today is ${today()}. You are writing as ${rep}.
 
 TASK: ${task}
@@ -160,10 +166,11 @@ ${historyText(messages)}
 
 Write:
 - subject: short and specific to them (no ALL CAPS, no emojis, no "Quick question")
-- body: plain text email. Start with a greeting using their first name if known. Use details from their enquiry so it is clearly personal. Follow the tone and rules. End with this signature exactly:
+- body: plain text email. Start with a greeting using their first name if known. Use details from their enquiry and the conversation so it is clearly personal. Follow the tone and rules. End with this signature exactly:
 ${p.signature.replace("{rep_name}", rep)}
   Do NOT add an unsubscribe line; the system adds it.
-- reason: one sentence for the salesperson explaining what this email does and why (e.g. "Mentions their May 12 tournament and asks for sizes so we can quote.")`,
+- reason: one short sentence for the salesperson explaining what this email does and why (e.g. "Mentions their May 12 tournament and asks for sizes so we can quote.")
+- follow_up_days: if they don't reply to this email, how many days we should wait before checking in again (1-30). Think about their deadline: sooner if it is close, longer if it is far away or they said "later". Use 0 if we should not follow up after this email (for example a final email, or they asked for no more emails).`,
     DRAFT_SCHEMA, "medium",
   );
 }

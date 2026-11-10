@@ -9,6 +9,7 @@ serve(async (req, body) => {
   const edits = {
     subject: typeof body.subject === "string" ? body.subject : undefined,
     body: typeof body.body === "string" ? body.body : undefined,
+    followUpDays: typeof body.followUpDays === "number" ? body.followUpDays : undefined,
   };
   return json(await sendDraft(body.messageId, edits, user));
 });

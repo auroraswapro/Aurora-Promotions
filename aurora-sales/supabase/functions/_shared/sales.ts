@@ -1,10 +1,9 @@
-// The sales workflow: new lead → Claude drafts → a person approves → send → wait → next draft.
-// A reply stops the sequence and Claude suggests an answer.
+// The sales workflow: new lead → Claude drafts → a person approves → send → Claude decides when to check in → repeat.
+// No fixed schedule: Claude decides each email and when to check in. A reply resets the count and Claude drafts an answer.
 import { addDays, APP_URL, db, getSettings, Lead, loadLead, logEvent, Message, Profile, repName, UserError } from "./core.ts";
 import { analyzeReply, draftEmail, ParsedLead } from "./ai.ts";
 import { MAIL_FROM, sendMail } from "./mail.ts";
 
-const ACTIVE = ["new", "following"];
 
 // ---------- new leads ----------
 
@@ -66,23 +65,33 @@ export async function createLead(input: {
 const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(Number(n) || 0)));
 
 // ---------- drafts ----------
+// No fixed sequence: Claude decides what each email says and suggests when to check in next.
+// lead.next_step counts our emails since the client last replied.
 
-export async function draftForLead(leadId: string, opts: { note?: string; userId?: string | null; kind?: "followup" | "reply" | "manual" } = {}): Promise<Message> {
-  const { playbook, sequence } = await getSettings();
+type Kind = "first" | "followup" | "reply" | "manual";
+export const OPEN = ["new", "following", "replied", "meeting", "quoted"];
+
+export async function draftForLead(leadId: string, opts: { note?: string; userId?: string | null; kind?: Kind } = {}): Promise<Message> {
+  const { playbook, followup } = await getSettings();
   const { lead, messages, owner } = await loadLead(leadId);
   if (!lead.email) throw new UserError("This lead has no email address yet. Add one first.");
   if (lead.status === "unsubscribed") throw new UserError("This lead asked us to stop emailing.");
 
   const pending = messages.filter((m) => m.status === "draft");
-  const kind = opts.kind ?? (pending[0]?.kind as "followup" | "reply" | "manual" | undefined) ?? (lead.status === "replied" ? "reply" : "followup");
-  if (kind === "followup" && lead.next_step >= sequence.steps.length) throw new UserError("All follow-ups in the sequence have been sent.");
-  const step = kind === "followup" ? lead.next_step : null;
+  const sentAny = messages.some((m) => m.direction === "out" && m.status === "sent");
+  const lastMsg = [...messages].reverse().find((m) => m.status === "sent" || m.status === "received");
+  const kind: Kind = opts.kind ?? (pending[0]?.kind as Kind | undefined)
+    ?? (!sentAny ? "first" : lastMsg?.direction === "in" ? "reply" : "followup");
+  if (kind === "followup" && lead.next_step >= followup.maxFollowups) {
+    throw new UserError(`We've already emailed ${lead.next_step} times without a reply. Write a custom email instead if you want to try again.`);
+  }
   const previous = pending[0] ? `Subject: ${pending[0].subject}\n${pending[0].body}` : undefined;
   const lastReply = [...messages].reverse().find((m) => m.direction === "in");
 
   const d = await draftEmail({
-    playbook, sequence, lead, messages, step, rep: repName(owner), note: opts.note,
-    replyTo: kind === "reply" ? lastReply?.body ?? "" : undefined, previous: opts.note ? previous : undefined,
+    playbook, lead, messages, kind, unanswered: lead.next_step, maxFollowups: followup.maxFollowups,
+    rep: repName(owner), note: opts.note, replyTo: kind === "reply" ? lastReply?.body ?? "" : undefined,
+    previous: opts.note ? previous : undefined,
   });
 
   // Keep one email thread: later emails reuse the first subject.
@@ -90,15 +99,17 @@ export async function draftForLead(leadId: string, opts: { note?: string; userId
   let subject = d.subject.trim();
   if (firstSent && kind !== "manual") subject = "Re: " + firstSent.subject.replace(/^(re:\s*)+/i, "");
   if (kind === "reply" && lastReply?.subject && !firstSent) subject = "Re: " + lastReply.subject.replace(/^(re:\s*)+/i, "");
+  const days = Math.max(0, Math.min(30, Math.round(Number(d.follow_up_days) || 0)));
 
   if (pending.length) await db.from("lead_messages").update({ status: "skipped", error: "Replaced by a new draft" }).in("id", pending.map((m) => m.id));
   const { data, error } = await db.from("lead_messages").insert({
-    lead_id: lead.id, direction: "out", status: "draft", kind, step,
+    lead_id: lead.id, direction: "out", status: "draft", kind, step: lead.next_step, follow_up_days: days,
     subject, body: d.body, ai_subject: subject, ai_body: d.body, ai_reason: d.reason.slice(0, 2000),
     ai: opts.note ? { note: opts.note } : {}, created_by: opts.userId ?? null,
   }).select("*").single();
   if (error) throw error;
-  await logEvent(lead.id, "drafted", opts.note ? `Claude rewrote the draft: "${opts.note.slice(0, 200)}"` : `Claude wrote ${step === null ? "a reply" : `follow-up ${step + 1}`}.`, opts.userId);
+  const what = { first: "the first email", followup: "a follow-up", reply: "an answer to their reply", manual: "a custom email" }[kind];
+  await logEvent(lead.id, "drafted", opts.note ? `Claude rewrote the draft: "${opts.note.slice(0, 200)}"` : `Claude wrote ${what}.`, opts.userId);
   return data as Message;
 }
 
@@ -119,17 +130,19 @@ export async function handleReply(leadId: string, text: string, opts: { userId?:
   const at = opts.receivedAt ?? new Date().toISOString();
   const update: Record<string, unknown> = {
     last_reply_at: at, score: clamp(a.score), temperature: a.temperature, next_action: a.next_action.slice(0, 1000),
+    next_step: 0,
   };
   if (a.intent === "out_of_office" || (a.new_status === "paused" && a.pause_days > 0)) {
-    // Keep the sequence going later instead of stopping it.
+    // Check in again later instead of stopping.
     update.status = lead.status === "new" ? "new" : "following";
+    update.next_step = lead.next_step;
     update.next_due_at = addDays(new Date(), Math.max(1, Math.min(90, a.pause_days || 7))).toISOString();
   } else {
     update.status = a.new_status;
     update.next_due_at = null;
   }
   await db.from("leads").update(update).eq("id", lead.id);
-  await db.from("lead_messages").update({ status: "skipped", error: "The client replied" }).eq("lead_id", lead.id).eq("status", "draft").eq("kind", "followup");
+  await db.from("lead_messages").update({ status: "skipped", error: "The client replied" }).eq("lead_id", lead.id).eq("status", "draft").in("kind", ["first", "followup"]);
   await logEvent(lead.id, "reply", `Replied: ${a.summary}`, opts.userId);
 
   let draft: Message | null = null;
@@ -146,11 +159,11 @@ export async function handleReply(leadId: string, text: string, opts: { userId?:
 
 // ---------- sending ----------
 
-export async function sendDraft(messageId: string, edits: { subject?: string; body?: string }, user: Profile) {
+export async function sendDraft(messageId: string, edits: { subject?: string; body?: string; followUpDays?: number }, user: Profile) {
   const { data: m } = await db.from("lead_messages").select("*").eq("id", messageId).maybeSingle();
   if (!m) throw new UserError("That draft no longer exists.");
   if (m.status !== "draft") throw new UserError(m.status === "sent" ? "This email was already sent." : "This draft is no longer waiting to be sent.");
-  const { playbook, sequence } = await getSettings();
+  const { playbook, followup } = await getSettings();
   const { lead, messages, owner } = await loadLead(m.lead_id);
   if (lead.status === "unsubscribed") throw new UserError("This lead asked us to stop emailing.");
   if (!lead.email) throw new UserError("This lead has no email address.");
@@ -176,18 +189,20 @@ export async function sendDraft(messageId: string, edits: { subject?: string; bo
     await db.from("lead_messages").update({ subject, body, provider_id: sent.providerId, message_id: sent.messageId, error: "" }).eq("id", m.id);
     const now = new Date();
     const upd: Record<string, unknown> = { last_contact_at: now.toISOString(), thread_id: lead.thread_id || sent.threadId };
-    if (m.kind === "followup" && m.step !== null) {
-      const next = m.step + 1;
-      upd.next_step = next;
-      upd.status = ACTIVE.includes(lead.status) ? "following" : lead.status;
-      // After the last email, wait 7 days for a reply before marking the sequence finished.
-      const wait = next < sequence.steps.length ? Number(sequence.steps[next].wait) || 1 : 7;
-      upd.next_due_at = addDays(now, wait).toISOString();
+    // If they don't reply, Claude writes again after the number of days it suggested (the rep can change it).
+    const days = Math.max(0, Math.min(60, Math.round(Number(edits.followUpDays ?? m.follow_up_days ?? followup.defaultDays))));
+    const count = lead.next_step + 1;
+    upd.next_step = days === 0 ? Math.max(count, followup.maxFollowups) : count;
+    if (lead.status === "new" || lead.status === "finished") upd.status = "following";
+    if (OPEN.includes(lead.status) || lead.status === "finished") {
+      // After the last email we still wait a week for a reply before closing the lead as "No reply".
+      upd.next_due_at = addDays(now, days === 0 || count >= followup.maxFollowups ? 7 : days).toISOString();
     }
     if (!lead.owner_id) upd.owner_id = user.id;
     await db.from("leads").update(upd).eq("id", lead.id);
     const edited = subject !== m.ai_subject || body !== m.ai_body.trim();
     await logEvent(lead.id, "sent", `${repName(user)} approved and sent "${subject}"${edited ? " (edited)" : ""}.`, user.id);
+    await db.from("lead_messages").update({ follow_up_days: days }).eq("id", m.id);
     return { ok: true };
   } catch (e) {
     await db.from("lead_messages").update({ status: "draft", approved_by: null, sent_at: null, error: e instanceof Error ? e.message.slice(0, 500) : "Send failed" }).eq("id", m.id);

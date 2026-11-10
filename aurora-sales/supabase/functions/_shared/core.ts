@@ -45,26 +45,35 @@ export function sameSecret(given: string | null, expected: string | undefined): 
   return diff === 0;
 }
 
-export type Step = { wait: number; goal: string };
 export type Playbook = {
   company: string; about: string; offer: string; tone: string; rules: string; cta: string;
   quoteLink: string; signature: string; optOut: string; assign: string;
 };
-export type Sequence = { leadHours: number; steps: Step[] };
+/** No fixed schedule: Claude picks the timing of each follow-up. These are only the limits. */
+export type FollowUp = { maxFollowups: number; defaultDays: number; leadHours: number };
 
 const DEFAULT_PLAYBOOK: Playbook = {
   company: "Aurora Promotions", about: "", offer: "", tone: "Friendly and professional.", rules: "", cta: "",
   quoteLink: "", signature: "{rep_name}\nAurora Promotions", optOut: 'If you would rather not hear from us, just reply "stop".',
   assign: "round_robin",
 };
-const DEFAULT_SEQUENCE: Sequence = { leadHours: 12, steps: [{ wait: 0, goal: "Thank them and ask what we need for a quote." }] };
+const DEFAULT_FOLLOWUP: FollowUp = { maxFollowups: 5, defaultDays: 3, leadHours: 12 };
 
-export async function getSettings(): Promise<{ playbook: Playbook; sequence: Sequence }> {
-  const { data } = await db.from("sales_settings").select("id,data").in("id", ["playbook", "sequence"]);
+export async function getSettings(): Promise<{ playbook: Playbook; followup: FollowUp }> {
+  const { data } = await db.from("sales_settings").select("id,data").in("id", ["playbook", "followup"]);
   const by = Object.fromEntries((data ?? []).map((r) => [r.id, r.data]));
-  const sequence = { ...DEFAULT_SEQUENCE, ...(by.sequence ?? {}) } as Sequence;
-  if (!Array.isArray(sequence.steps) || !sequence.steps.length) sequence.steps = DEFAULT_SEQUENCE.steps;
-  return { playbook: { ...DEFAULT_PLAYBOOK, ...(by.playbook ?? {}) }, sequence };
+  const f = { ...DEFAULT_FOLLOWUP, ...(by.followup ?? {}) };
+  const followup: FollowUp = {
+    maxFollowups: clampInt(f.maxFollowups, 1, 20, 5),
+    defaultDays: clampInt(f.defaultDays, 1, 60, 3),
+    leadHours: clampInt(f.leadHours, 0, 72, 12),
+  };
+  return { playbook: { ...DEFAULT_PLAYBOOK, ...(by.playbook ?? {}) }, followup };
+}
+
+export function clampInt(v: unknown, min: number, max: number, fallback: number): number {
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback;
 }
 
 export type Lead = Record<string, any> & { id: string; name: string; email: string; status: string; next_step: number };

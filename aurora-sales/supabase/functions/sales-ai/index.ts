@@ -1,7 +1,7 @@
 // AI actions the team uses in the app. Every call needs a signed-in team member.
 //   read     – Claude reads a pasted email/form and fills in the lead
 //   create   – save a new lead and have Claude write the first email
-//   draft    – write (or rewrite with a note) the next email for a lead
+//   draft    – write (or rewrite with a note) the next email for a lead; Claude picks what to say
 //   reply    – log a client's reply; Claude reads it, updates the lead and drafts an answer
 //   insight  – refresh Claude's summary, score and next step for a lead
 //   ask      – ask Claude a question about the whole pipeline
@@ -57,7 +57,8 @@ serve(async (req, body) => {
       const names = new Map((team ?? []).map((t) => [t.id, t.display_name || t.email]));
       const rows = (leads ?? []).map((l) => {
         const { enquiry: _e, ...details } = (l.details ?? {}) as Record<string, unknown>;
-        return { ...l, details, owner: l.owner_id ? names.get(l.owner_id) ?? "" : "unassigned", owner_id: undefined };
+        const { next_step, next_due_at, ...rest } = l;
+        return { ...rest, details, emails_without_reply: next_step, next_check_in: next_due_at, owner: l.owner_id ? names.get(l.owner_id) ?? "" : "unassigned", owner_id: undefined };
       });
       return json(await askPipeline(playbook, q, repName(user), rows));
     }
