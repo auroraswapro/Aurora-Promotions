@@ -734,7 +734,8 @@ function setupPage() {
 /* ================= actions ================= */
 function go(route, id) { location.hash = id ? `${route}/${id}` : route; }
 function onRoute() {
-  const [r, id] = location.hash.replace(/^#/, "").split("/");
+  const h = location.hash.replace(/^#/, "");
+  const [r, id] = /[=&]/.test(h) ? ["today"] : h.split("/");
   S.route = r || "today";
   S.panel = null; S.confirmDelete = false; S.editDetails = false; S.confirmSend = null;
   if (S.route !== "settings") S.pbDraft = null;
@@ -939,13 +940,13 @@ window.addEventListener("hashchange", onRoute);
 /* ================= sign in ================= */
 function renderLogin(msg, codeStep) {
   $("#root").innerHTML = codeStep
-    ? `<form class="auth" id="codeForm" novalidate><img src="logo.png" alt=""><h1>Check your email</h1><p>We sent a 6-digit code to <b>${esc(S.loginEmail)}</b>.</p>
+    ? `<form class="auth" id="codeForm" novalidate><img src="logo.png" alt=""><h1>Check your email</h1><p>We sent an email to <b>${esc(S.loginEmail)}</b>. <b>Click the sign-in link in it</b> (open it in this same browser). If the email shows a code instead, type it below.</p>
         <div class="field"><label for="l-code">Code</label><input class="inp code-inp" id="l-code" inputmode="numeric" autocomplete="one-time-code" maxlength="10" required></div>
         <div class="err" role="alert">${esc(msg || "")}</div><button class="btn primary" type="submit">Sign in</button>
         <button class="btn ghost" type="button" id="backBtn">Use a different email</button></form>`
-    : `<form class="auth" id="loginForm" novalidate><img src="logo.png" alt=""><h1>Aurora Sales</h1><p>Sign in with your work email. We'll email you a 6-digit code.</p>
+    : `<form class="auth" id="loginForm" novalidate><img src="logo.png" alt=""><h1>Aurora Sales</h1><p>Sign in with your work email. We'll email you a sign-in link.</p>
         <div class="field"><label for="l-email">Email</label><input class="inp" id="l-email" type="email" autocomplete="email" required value="${esc(S.loginEmail || "")}"></div>
-        <div class="err" role="alert">${esc(msg || "")}</div><button class="btn primary" type="submit">Email me a code</button></form>`;
+        <div class="err" role="alert">${esc(msg || "")}</div><button class="btn primary" type="submit">Email me a sign-in link</button></form>`;
   const f = $("form");
   f.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -955,12 +956,12 @@ function renderLogin(msg, codeStep) {
       const email = $("#l-email").value.trim().toLowerCase();
       if (!/^\S+@\S+\.\S+$/.test(email)) { err.textContent = "Enter a valid email address."; btn.disabled = false; return; }
       S.loginEmail = email;
-      const { error } = await S.sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+      const { error } = await S.sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true, emailRedirectTo: location.origin + location.pathname } });
       if (error) { err.textContent = /rate|seconds/i.test(error.message) ? "Please wait a minute before asking for another code." : "Couldn't send the code. Try again in a moment."; btn.disabled = false; return; }
       renderLogin("", true); setTimeout(() => $("#l-code") && $("#l-code").focus(), 30);
     } else {
       const token = $("#l-code").value.replace(/\D/g, "");
-      if (token.length < 6) { err.textContent = "Enter the 6-digit code from the email."; btn.disabled = false; return; }
+      if (token.length < 6) { err.textContent = "Enter the code from the email."; btn.disabled = false; return; }
       const { error } = await S.sb.auth.verifyOtp({ email: S.loginEmail, token, type: "email" });
       if (error) { err.textContent = "That code didn't work. Check it, or go back and ask for a new one."; btn.disabled = false; }
     }
@@ -1000,7 +1001,7 @@ async function boot() {
     if (/[?&]manager\b/.test(location.search)) S.me = { id: "u1", email: "maria@aurorapromotions.com", display_name: "Maria", role: "manager", active: true };
     onRoute(); await reload(); return;
   }
-  S.sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } });
+  S.sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
   S.sb.auth.onAuthStateChange((event, session) => {
     if (event === "SIGNED_OUT") { S.me = null; S.loaded = false; S.mode = "login"; renderLogin(); return; }
     if (event === "SIGNED_IN" && session && (!S.me || S.mode === "login")) setTimeout(() => startCloud(session.user), 0);
