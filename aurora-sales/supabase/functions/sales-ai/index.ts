@@ -5,8 +5,10 @@
 //   reply    – log a client's reply; Claude reads it, updates the lead and drafts an answer
 //   insight  – refresh Claude's summary, score and next step for a lead
 //   ask      – ask Claude a question about the whole pipeline
+//   ghl-test – managers check the GoHighLevel connection
 import { db, getSettings, json, loadLead, logEvent, repName, requireMember, serve, UserError } from "../_shared/core.ts";
 import { askPipeline, leadInsight, parseLead } from "../_shared/ai.ts";
+import { ghlTest } from "../_shared/ghl.ts";
 import { createLead, draftForLead, handleReply } from "../_shared/sales.ts";
 
 const str = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
@@ -61,6 +63,10 @@ serve(async (req, body) => {
         return { ...rest, details, emails_without_reply: next_step, next_check_in: next_due_at, owner: l.owner_id ? names.get(l.owner_id) ?? "" : "unassigned", owner_id: undefined };
       });
       return json(await askPipeline(playbook, q, repName(user), rows));
+    }
+    case "ghl-test": {
+      if (user.role !== "manager") throw new UserError("Only managers can do this.");
+      return json(await ghlTest());
     }
     default:
       throw new UserError("Unknown action.");

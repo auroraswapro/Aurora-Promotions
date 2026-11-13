@@ -146,6 +146,19 @@ manager.** Then add the team under **Settings → Team**, and check **Settings �
 
 ---
 
+## Connecting GoHighLevel (GHL)
+
+Managers do this in the app under **Settings → Integrations**. The page has the steps.
+
+1. **New GHL leads → Aurora Sales.** Click **Create my lead link**, copy it, and add it as a
+   **Webhook** action (POST) in a GHL workflow triggered by **Contact Created** or **Form Submitted**.
+   Claude reads each contact, the lead is assigned, and the first email waits for approval.
+2. **Aurora Sales → GHL (optional).** Create a **Private Integration** in GHL (scopes: View Contacts,
+   Edit Contacts, View Locations), paste its key and your **Location ID**, then **Test connection**.
+   Every sent email and client reply is then added as a note on the GHL contact.
+
+The GHL key is stored in a private table that only the server can read.
+
 ## Sending leads in automatically
 
 Anything that can send a web request can create a lead:
