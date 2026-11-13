@@ -125,3 +125,11 @@ export function serve(handler: (req: Request, body: any) => Promise<Response>) {
     }
   });
 }
+
+export type Integrations = { intakeKey?: string; ghlToken?: string; ghlLocationId?: string; ghlSync?: boolean };
+
+/** Private integration settings (GHL key, intake link key). Only the server can read these. */
+export async function getIntegrations(): Promise<Integrations> {
+  const { data } = await db.from("sales_private").select("data").eq("id", "integrations").maybeSingle();
+  return (data?.data ?? {}) as Integrations;
+}

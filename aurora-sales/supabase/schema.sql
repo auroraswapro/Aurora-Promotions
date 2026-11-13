@@ -292,6 +292,65 @@ drop policy if exists "admins manage sales settings" on public.sales_settings;
 create policy "admins manage sales settings" on public.sales_settings for all to authenticated
   using (public.is_sales_admin()) with check (public.is_sales_admin());
 
+-- ---------- integrations (GoHighLevel, website forms) -----------------------
+-- Private settings: the GHL key and the lead-intake link key. No one can read this
+-- table from the app; only the server can. Managers change it through the functions below.
+create table if not exists public.sales_private (
+  id   text primary key,
+  data jsonb not null default '{}'::jsonb
+);
+alter table public.sales_private enable row level security;
+revoke all on public.sales_private from anon, authenticated;
+
+create or replace function public.get_integrations() returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare d jsonb;
+begin
+  if not public.is_sales_admin() then raise exception 'managers_only'; end if;
+  select data into d from public.sales_private where id = 'integrations';
+  d := coalesce(d, '{}'::jsonb);
+  return jsonb_build_object(
+    'intakeKey', coalesce(d->>'intakeKey', ''),
+    'ghlConnected', coalesce(d->>'ghlToken', '') <> '',
+    'ghlLocationId', coalesce(d->>'ghlLocationId', ''),
+    'ghlSync', coalesce((d->>'ghlSync')::boolean, true));
+end;
+$$;
+
+create or replace function public.new_intake_key() returns text
+language plpgsql security definer set search_path = public as $$
+declare k text := replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '');
+begin
+  if not public.is_sales_admin() then raise exception 'managers_only'; end if;
+  insert into public.sales_private (id, data) values ('integrations', jsonb_build_object('intakeKey', k))
+  on conflict (id) do update set data = public.sales_private.data || jsonb_build_object('intakeKey', k);
+  return k;
+end;
+$$;
+
+-- Saves the GHL connection. An empty token keeps the one already saved.
+create or replace function public.save_ghl(p_token text, p_location text, p_sync boolean) returns void
+language plpgsql security definer set search_path = public as $$
+declare patch jsonb := jsonb_build_object('ghlLocationId', trim(coalesce(p_location, '')), 'ghlSync', coalesce(p_sync, true));
+begin
+  if not public.is_sales_admin() then raise exception 'managers_only'; end if;
+  if coalesce(trim(p_token), '') <> '' then patch := patch || jsonb_build_object('ghlToken', trim(p_token)); end if;
+  insert into public.sales_private (id, data) values ('integrations', patch)
+  on conflict (id) do update set data = public.sales_private.data || patch;
+end;
+$$;
+
+create or replace function public.disconnect_ghl() returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_sales_admin() then raise exception 'managers_only'; end if;
+  update public.sales_private set data = data - 'ghlToken' - 'ghlLocationId' where id = 'integrations';
+end;
+$$;
+
+revoke all on function public.get_integrations(), public.new_intake_key(), public.save_ghl(text, text, boolean), public.disconnect_ghl() from public, anon;
+grant execute on function public.get_integrations(), public.new_intake_key(), public.save_ghl(text, text, boolean), public.disconnect_ghl() to authenticated;
+
 -- ---------- live updates ----------------------------------------------------
 do $$
 declare t text;

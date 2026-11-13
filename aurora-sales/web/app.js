@@ -126,6 +126,11 @@ const Cloud = {
     if (data && data.error) throw new Error(data.error);
     return data;
   },
+  async rpc(fn, args) { const { data, error } = await S.sb.rpc(fn, args || {}); if (error) throw new Error(/managers_only/.test(error.message) ? "Only managers can do this." : error.message); return data; },
+  getIntegrations() { return Cloud.rpc("get_integrations"); },
+  newIntakeKey() { return Cloud.rpc("new_intake_key"); },
+  saveGhl(token, location, sync) { return Cloud.rpc("save_ghl", { p_token: token, p_location: location, p_sync: sync }); },
+  disconnectGhl() { return Cloud.rpc("disconnect_ghl"); },
   ai(action, payload) { return Cloud.call("sales-ai", { action, ...payload }); },
   send(messageId, subject, body, followUpDays) { return Cloud.call("sales-send", { messageId, subject, body, followUpDays }); },
 };
@@ -182,6 +187,7 @@ const Demo = (() => {
     playbook: { company: "Aurora Promotions", about: "Aurora Promotions makes custom printed apparel and promotional products for businesses, schools, events, teams and non-profits.", offer: "Screen printing, embroidery and DTF printing\nFree design help and a digital proof before anything is printed\nBulk pricing that gets better with quantity", tone: "Friendly, warm and professional. Short, clear sentences.", rules: "Never promise a price or date that isn't in this playbook.\nKeep emails under 120 words.\nEnd with one simple question.", cta: "Reply with your quantity, colours and deadline and we'll send a free quote the same day.", quoteLink: "", signature: "{rep_name}\nAurora Promotions", optOut: 'If you would rather not hear from us, just reply "stop".', assign: "round_robin" },
     followup: { maxFollowups: 5, defaultDays: 3, leadHours: 12 },
   };
+  const integ = { intakeKey: "demo1234demo1234", ghlToken: "", ghlLocationId: "", ghlSync: true };
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const ev = (lead_id, type, text) => events.unshift({ id: uid(), lead_id, type, text, user_id: S.me && S.me.id, created_at: now() });
   const touch = (l) => { l.updated_at = now(); };
@@ -276,6 +282,10 @@ const Demo = (() => {
     async invite(row) { team.push({ id: uid(), email: row.email, display_name: row.display_name, title: row.title, role: row.role, active: true, joined_at: now() }); },
     async removeInvite() {},
     async updateMember(id, patch) { Object.assign(team.find((t) => t.id === id), patch); },
+    async getIntegrations() { return { intakeKey: integ.intakeKey, ghlConnected: !!integ.ghlToken, ghlLocationId: integ.ghlLocationId, ghlSync: integ.ghlSync }; },
+    async newIntakeKey() { integ.intakeKey = uid().replace(/-/g, ""); return integ.intakeKey; },
+    async saveGhl(token, location, sync) { if (token) integ.ghlToken = token; integ.ghlLocationId = location; integ.ghlSync = sync; },
+    async disconnectGhl() { integ.ghlToken = ""; integ.ghlLocationId = ""; },
     async ai(action, p) {
       await wait(900 + Math.random() * 700);
       if (action === "read") return { lead: fakeRead(p.text) };
@@ -311,6 +321,7 @@ const Demo = (() => {
         Object.assign(lead, i); touch(lead); ev(lead.id, "insight", "Claude refreshed the summary and next step.");
         return { insight: i };
       }
+      if (action === "ghl-test") return integ.ghlToken && integ.ghlLocationId ? { ok: true, name: "Aurora Promotions (demo)" } : { ok: false, error: "Add the Private Integration key and the Location ID first." };
       if (action === "ask") {
         const open = leads.filter((l) => OPEN.includes(l.status)).sort((a, b) => b.score - a.score);
         const top = open.slice(0, 4);
@@ -643,8 +654,8 @@ function askPage() {
 /* ---------- Settings (how Claude writes + team) ---------- */
 function settingsPage() {
   return `<div class="head"><div><h1>Settings</h1><p>${isManager() ? "What Claude knows about Aurora, and who's on the team." : "Only managers can change these."}</p></div></div>
-    <div class="tabs"><button class="tab ${S.settingsTab === "playbook" ? "on" : ""}" data-act="stab" data-t="playbook">How Claude writes</button><button class="tab ${S.settingsTab === "team" ? "on" : ""}" data-act="stab" data-t="team">Team</button></div>
-    ${S.settingsTab === "team" ? teamSection() : playbookSection()}`;
+    <div class="tabs"><button class="tab ${S.settingsTab === "playbook" ? "on" : ""}" data-act="stab" data-t="playbook">How Claude writes</button><button class="tab ${S.settingsTab === "team" ? "on" : ""}" data-act="stab" data-t="team">Team</button><button class="tab ${S.settingsTab === "integrations" ? "on" : ""}" data-act="stab" data-t="integrations">Integrations</button></div>
+    ${S.settingsTab === "team" ? teamSection() : S.settingsTab === "integrations" ? integrationsSection() : playbookSection()}`;
 }
 function playbookSection() {
   const mgr = isManager();
@@ -653,7 +664,6 @@ function playbookSection() {
   const p = pb.playbook, ro = mgr ? "" : "disabled";
   const ta = (k, label, hint, rows) => `<div class="field"><label for="pb-${k}">${label}</label><textarea class="inp" id="pb-${k}" data-pb="${k}" rows="${rows || 3}" ${ro}>${esc(p[k] || "")}</textarea>${hint ? `<span class="hint">${hint}</span>` : ""}</div>`;
   const inp = (k, label, hint) => `<div class="field"><label for="pb-${k}">${label}</label><input class="inp" id="pb-${k}" data-pb="${k}" value="${esc(p[k] || "")}" ${ro}>${hint ? `<span class="hint">${hint}</span>` : ""}</div>`;
-  const cfg = window.AURORA_SALES_CONFIG || {};
   return `<div class="grid2">
     <div class="card stack"><h2>About Aurora</h2>
       ${inp("company", "Company name")}
@@ -677,7 +687,68 @@ function playbookSection() {
       ${S.team.filter((t) => t.active).map((t) => `<option value="${t.id}" ${p.assign === t.id ? "selected" : ""}>${esc(t.display_name || t.email)}</option>`).join("")}</select></div>
   </div>
   ${mgr ? `<div class="row" style="margin-top:14px"><button class="btn primary" data-act="pb-save">Save</button><button class="btn ghost" data-act="pb-reset">Undo changes</button></div>
-    <details style="margin-top:18px"><summary class="hint">Connecting your website form</summary><p class="hint">Send new enquiries to <code>${esc((cfg.supabaseUrl || "https://YOUR-PROJECT.supabase.co") + "/functions/v1/sales-intake")}</code> with the header <code>x-intake-key</code>. Steps are in <code>aurora-sales/README.md</code>.</p></details>` : ""}`;
+` : ""}`;
+}
+function intakeUrl(key) {
+  const cfg = window.AURORA_SALES_CONFIG || {};
+  return `${cfg.supabaseUrl || "https://YOUR-PROJECT.supabase.co"}/functions/v1/sales-intake?key=${key}`;
+}
+function integrationsSection() {
+  if (!isManager()) return `<div class="card empty"><b>Managers only</b>Ask your sales manager to connect GoHighLevel or your website form.</div>`;
+  const g = S.integ;
+  if (!g) { loadIntegrations(); return `<p class="thinking">Loading</p>`; }
+  const b = S.busy.integ;
+  const test = S.ghlTest;
+  return `<div class="card stack">
+    <div class="card-h" style="margin:0"><h2>GoHighLevel (GHL)</h2>${g.ghlConnected ? pill("Connected", "ok") : pill("Not connected")}</div>
+    <p class="hint" style="margin:0">Connect Aurora Sales to your GHL account. Part 1 brings new GHL leads in. Part 2 (optional) writes a note on the GHL contact whenever we email them or they reply.</p>
+  </div>
+
+  <div class="card stack" style="margin-top:12px">
+    <h2>Part 1 · Get new leads from GHL</h2>
+    ${g.intakeKey ? `
+      <div class="field"><label for="in-url">Your lead link (keep it private)</label>
+        <div class="row"><input class="inp grow" id="in-url" readonly value="${esc(intakeUrl(g.intakeKey))}"><button class="btn" data-act="copy" data-from="#in-url">Copy</button></div></div>
+      <ol class="steps-list">
+        <li>In GHL, open <b>Automation</b> → <b>Workflows</b> → <b>Create Workflow</b> → <b>Start from scratch</b>.</li>
+        <li>Click <b>Add New Trigger</b> and choose <b>Contact Created</b> (or <b>Form Submitted</b> to use one form). Save the trigger.</li>
+        <li>Click <b>+</b> under the trigger, choose <b>Webhook</b>.</li>
+        <li>Method: <b>POST</b>. URL: paste <b>your lead link</b> from above. Leave everything else as it is. Click <b>Save Action</b>.</li>
+        <li>Click <b>Publish</b> (top right) and <b>Save</b>.</li>
+        <li>Test it: create a test contact in GHL with your own email. Within a minute it appears in <b>Leads</b> here, with Claude's first email waiting on <b>Today</b>.</li>
+      </ol>
+      <p class="hint" style="margin:0">The same link works for any website form or tool that can send a webhook. If the link ever leaks, <button class="btn sm ghost" data-act="new-key" ${b ? "disabled" : ""}>make a new link</button> and update it in GHL.</p>`
+    : `<p style="margin:0">Create your private lead link first. You'll paste it into GHL.</p><div><button class="btn primary" data-act="new-key" ${b ? "disabled" : ""}>Create my lead link</button></div>`}
+  </div>
+
+  <div class="card stack" style="margin-top:12px">
+    <h2>Part 2 · Send updates back to GHL <span class="hint" style="font-weight:500">(optional)</span></h2>
+    <ol class="steps-list">
+      <li>In GHL, open <b>Settings</b> → <b>Private Integrations</b> → <b>Create new Integration</b>. Name it <b>Aurora Sales</b>.</li>
+      <li>Under permissions (scopes), tick: <b>View Contacts</b>, <b>Edit Contacts</b> and <b>View Locations</b>. Click <b>Create</b>.</li>
+      <li>Copy the key it shows and paste it below. GHL shows it only once.</li>
+      <li>Find your <b>Location ID</b>: in GHL, open <b>Settings</b> → <b>Business Profile</b>; it's listed there. Paste it below.</li>
+      <li>Click <b>Save</b>, then <b>Test connection</b>.</li>
+    </ol>
+    <div class="fields">
+      <div class="field"><label for="ghl-token">Private Integration key</label><input class="inp" id="ghl-token" type="password" autocomplete="off" placeholder="${g.ghlConnected ? "Saved ✓ (paste a new one to replace it)" : "Paste the key from GHL"}"></div>
+      <div class="field"><label for="ghl-loc">Location ID</label><input class="inp" id="ghl-loc" value="${esc(g.ghlLocationId)}" placeholder="e.g. a1B2c3D4e5F6g7H8i9J0"></div>
+    </div>
+    <label class="row" style="gap:6px;font-weight:550"><input type="checkbox" id="ghl-sync" ${g.ghlSync ? "checked" : ""}> Add a note to the GHL contact when we send an email or they reply</label>
+    <div class="row">
+      <button class="btn primary" data-act="ghl-save" ${b ? "disabled" : ""}>Save</button>
+      <button class="btn" data-act="ghl-test" ${b || !g.ghlConnected ? "disabled" : ""}>${b === "test" ? "Testing…" : "Test connection"}</button>
+      ${g.ghlConnected ? `<span class="grow"></span><button class="btn sm ghost danger" data-act="ghl-off" ${b ? "disabled" : ""}>Disconnect</button>` : ""}
+    </div>
+    ${test ? `<div class="banner ${test.ok ? "" : "bad"}" style="margin:0">${test.ok ? `✓ Connected to <b>${esc(test.name)}</b>. Notes will appear on GHL contacts.` : esc(test.error)}</div>` : ""}
+    <p class="hint" style="margin:0">The key is stored privately on the server. Nobody can read it back from the app, not even managers.</p>
+  </div>`;
+}
+async function loadIntegrations() {
+  if (S.integLoading) return;
+  S.integLoading = true;
+  try { S.integ = await API.getIntegrations(); } catch (e) { toast(e.message || "Couldn't load integrations."); S.integ = { intakeKey: "", ghlConnected: false, ghlLocationId: "", ghlSync: true }; }
+  S.integLoading = false; rerender();
 }
 function teamSection() {
   const mgr = isManager();
@@ -853,6 +924,25 @@ const actions = {
   },
   async uninvite(b) { try { await API.removeInvite(b.dataset.email); await refresh(); } catch (e) { toast(e.message); } },
   "pb-reset": () => { S.pbDraft = null; rerender(); },
+  copy: async (b) => { const el = $(b.dataset.from); try { await navigator.clipboard.writeText(el.value); toast("Copied"); } catch (_) { el.select(); toast("Selected. Press Ctrl+C (Cmd+C on Mac) to copy."); } },
+  "new-key": () => busy("integ", async function key() {
+    if (S.integ && S.integ.intakeKey && !confirm("Make a new link? The old link stops working, so you'll need to paste the new one into GHL.")) return;
+    const k = await API.newIntakeKey(); S.integ = { ...S.integ, intakeKey: k }; toast("Your lead link is ready. Copy it into GHL.");
+  }),
+  "ghl-save": () => {
+    // Read the boxes before anything redraws the page.
+    const token = $("#ghl-token").value.trim(), loc = $("#ghl-loc").value.trim(), sync = $("#ghl-sync").checked;
+    if (!S.integ.ghlConnected && !token) { toast("Paste the Private Integration key from GHL."); return; }
+    if (!loc) { toast("Paste your GHL Location ID."); return; }
+    return busy("integ", async function save() {
+      await API.saveGhl(token, loc, sync); S.integ = await API.getIntegrations(); S.ghlTest = null; toast("Saved. Now click Test connection.");
+    });
+  },
+  "ghl-test": () => busy("integ", async function test() { S.ghlTest = await API.ai("ghl-test", {}); }),
+  "ghl-off": () => busy("integ", async function off() {
+    if (!confirm("Disconnect GHL? Aurora Sales will stop adding notes in GHL. Leads from your GHL workflow keep arriving.")) return;
+    await API.disconnectGhl(); S.integ = await API.getIntegrations(); S.ghlTest = null; toast("GHL disconnected.");
+  }),
   async "pb-save"() {
     collectPb();
     const { playbook, followup } = S.pbDraft;

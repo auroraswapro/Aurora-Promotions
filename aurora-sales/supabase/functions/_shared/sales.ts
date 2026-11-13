@@ -3,6 +3,7 @@
 import { addDays, APP_URL, db, getSettings, Lead, loadLead, logEvent, Message, Profile, repName, UserError } from "./core.ts";
 import { analyzeReply, draftEmail, ParsedLead } from "./ai.ts";
 import { MAIL_FROM, sendMail } from "./mail.ts";
+import { ghlNote } from "./ghl.ts";
 
 
 // ---------- new leads ----------
@@ -24,6 +25,7 @@ async function pickOwner(assign: string): Promise<string | null> {
 
 export async function createLead(input: {
   fields: Partial<ParsedLead>; enquiry: string; userId?: string | null; ownerId?: string | null; draftNow?: boolean;
+  extraDetails?: Record<string, unknown>;
 }): Promise<{ lead: Lead; duplicate: boolean; draft: Message | null }> {
   const f = input.fields;
   const email = (f.email ?? "").trim().toLowerCase();
@@ -48,6 +50,7 @@ export async function createLead(input: {
     details: {
       products: f.products ?? "", quantity: f.quantity ?? "", deadline: f.deadline ?? "", budget: f.budget ?? "",
       location: f.location ?? "", notes: f.notes ?? "", enquiry: input.enquiry.slice(0, 20000),
+      ...(input.extraDetails ?? {}),
     },
     status: "new", next_step: 0, next_due_at: new Date().toISOString(), created_by: input.userId ?? null,
   };
@@ -153,6 +156,7 @@ export async function handleReply(leadId: string, text: string, opts: { userId?:
       console.error("reply draft failed", e);
     }
   }
+  await ghlNote(lead, `Aurora Sales: ${lead.name || "The client"} replied.\n${a.summary}\n\n"${text.slice(0, 1500)}"`);
   if (lead.owner_id) await notify([lead.owner_id], `${lead.name || lead.email} replied`, `${a.summary}\n\n${draft ? "Claude has written an answer for you to approve." : a.next_action}`);
   return { message: msg, analysis: a, draft };
 }
@@ -203,6 +207,7 @@ export async function sendDraft(messageId: string, edits: { subject?: string; bo
     const edited = subject !== m.ai_subject || body !== m.ai_body.trim();
     await logEvent(lead.id, "sent", `${repName(user)} approved and sent "${subject}"${edited ? " (edited)" : ""}.`, user.id);
     await db.from("lead_messages").update({ follow_up_days: days }).eq("id", m.id);
+    await ghlNote(lead, `Aurora Sales: email sent by ${repName(user)}\nSubject: ${subject}\n\n${body}`);
     return { ok: true };
   } catch (e) {
     await db.from("lead_messages").update({ status: "draft", approved_by: null, sent_at: null, error: e instanceof Error ? e.message.slice(0, 500) : "Send failed" }).eq("id", m.id);
