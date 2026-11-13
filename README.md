@@ -25,6 +25,13 @@ one tap.
   <img src="docs/screenshots/my-tasks-dark.png" width="49%" alt="My tasks, dark mode">
 </p>
 
+## Aurora Sales (separate system)
+
+[`aurora-sales/`](aurora-sales/) is a separate AI lead follow-up system, with its own database
+and sign-in. Claude reads leads, writes every follow-up email and reads replies; a salesperson
+approves each email before it is sent from your domain mailbox. Setup and details:
+[aurora-sales/README.md](aurora-sales/README.md).
+
 ## Online version (recommended)
 
 The `web/` folder is the online edition: a website on **GitHub Pages** that uses **Supabase**

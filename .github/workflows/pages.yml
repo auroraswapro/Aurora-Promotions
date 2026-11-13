@@ -1,10 +1,12 @@
 name: Publish website
 
-# Publishes the web/ folder to GitHub Pages whenever it changes.
+# Publishes the Team Tracker (web/) and, at /sales/, the separate Aurora Sales app
+# (aurora-sales/web/) to GitHub Pages whenever either changes.
 on:
   push:
     paths:
       - 'web/**'
+      - 'aurora-sales/web/**'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -26,9 +28,15 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          cp -r web/. _site/
+          mkdir -p _site/sales
+          cp -r aurora-sales/web/. _site/sales/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: web
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4
