@@ -195,7 +195,7 @@ async function graphReplies(from: string, since: Date): Promise<Incoming[]> {
 async function resendSend(m: Outgoing, messageId: string): Promise<Sent> {
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
-    headers: { Authorization: `Bearer ${env("RESEND_API_KEY")}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${env("RESEND_API_KEY") || env("Resend Secret API Key")}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       from: addr(m.fromName, MAIL_FROM), to: [m.to], subject: clean(m.subject), text: m.text,
       ...(m.replyTo ? { reply_to: m.replyTo } : {}),
